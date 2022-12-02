@@ -1,0 +1,888 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>network_eval</title><meta name="generator" content="MATLAB 9.9"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2021-05-11"><meta name="DC.source" content="network_eval.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">function</span> [mass_flowrates, net_volumes, mass_imbalance] = network_eval(k)
+<span class="comment">% This function will perform clustering with a user-selected algorithm and</span>
+<span class="comment">% number of clusters. The mass flowrates and the volumes of the reactors are computed</span>
+<span class="comment">%</span>
+<span class="comment">%   *INPUT*:</span>
+<span class="comment">%       _k_ = number of reactors</span>
+<span class="comment">%</span>
+<span class="comment">%   *OUTPUT*:</span>
+<span class="comment">%       _mass flowrates_ = k x k matrix with mass flowrates</span>
+<span class="comment">%                        across clusters. mass_flowrates(i,j) = mass from i</span>
+<span class="comment">%                        to j</span>
+<span class="comment">%</span>
+<span class="comment">%       _net volumes_ = k x 1 vector of indiivdual reactor volumes</span>
+<span class="comment">%</span>
+<span class="comment">%</span>
+<span class="comment">%       _mass imbalance_ = mass imbalance of the reactors</span>
+<span class="comment">%</span>
+<span class="comment">%   *INSTRUCTIONS*:</span>
+<span class="comment">% In the working folder, you should have a list of .csv files exported</span>
+<span class="comment">% directly from Fluent. Those files are:</span>
+<span class="comment">%</span>
+<span class="comment">%   data_solution: exported variables according to the user, under the name</span>
+<span class="comment">%   of "data_solution"</span>
+<span class="comment">%</span>
+<span class="comment">%   data_volumes: exported cell volumes from Fluent under the name of "data_volumes"</span>
+<span class="comment">%</span>
+<span class="comment">%   data_density: exported cell density from Fluent under the name of</span>
+<span class="comment">%                 "data_density"</span>
+<span class="comment">%</span>
+<span class="comment">%   neighbor_cell_flowrates: exported connectivity info and mass flowrates</span>
+<span class="comment">%                            across neighbor cell using the udf export_neighbor_faces.c</span>
+<span class="comment">%                            under the name of "neighbor_cell_flowrates"</span>
+<span class="comment">%</span>
+<span class="comment">% *AVAILABLE ALGORITHMS*:</span>
+<span class="comment">%       _k-means_</span>
+<span class="comment">%       _local pca_</span>
+<span class="comment">%</span>
+
+addpath <span class="string">/Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/</span>
+addpath <span class="string">/Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/PCA_trunk/</span>
+
+<span class="comment">% Change default font size for plot</span>
+set(0,<span class="string">'defaultaxesfontsize'</span>,16);
+set(0,<span class="string">'defaulttextfontsize'</span>,18);
+
+<span class="comment">% Load the data</span>
+data_solution = importdata(<span class="string">'data_solution'</span>);
+data_volumes  = importdata(<span class="string">'data_volumes'</span>);
+data_density  = importdata(<span class="string">'data_density'</span>);
+data_mass     = importdata(<span class="string">'neighbor_cell_flowrates'</span>);
+
+labels = data_solution.textdata;
+
+<span class="comment">% Recognize if the case is 2D or 3D</span>
+<span class="keyword">if</span> strcmp(labels{4}, <span class="string">'       z-coordinate'</span>) == true
+    dim = 3;
+    start = 5;
+<span class="keyword">else</span>
+    dim = 2;
+    start = 4;
+<span class="keyword">end</span>
+
+<span class="comment">% Build the data matrix</span>
+X_data = data_solution.data;
+X = X_data(:, start:end);
+
+<span class="comment">% Volume data</span>
+data_volumes = data_volumes.data;
+vol_data = data_volumes(:, start);
+
+<span class="comment">% Density data</span>
+data_density = data_density.data;
+density_data = data_density(:,start);
+
+<span class="comment">% Coordinates</span>
+coord = X_data(:, 2:start);
+
+<span class="comment">% Choose algorithm</span>
+alg = input(<span class="string">'Type k-means or lpca to select the algorithm: '</span>, <span class="string">'s'</span>);
+
+<span class="comment">% Select scaling criteria</span>
+scal = input(<span class="string">'Scaling criteria, available choises are: no, auto, range, pareto, vast, level, max, : '</span>, <span class="string">'s'</span>);
+    <span class="keyword">if</span> strcmp(scal, <span class="string">'auto'</span>) == true
+        scal_crit = 1;
+    <span class="keyword">elseif</span> strcmp(scal, <span class="string">'range'</span>) == true
+        scal_crit = 2;
+    <span class="keyword">elseif</span> strcmp(scal, <span class="string">'pareto'</span>) == true
+        scal_crit = 3;
+    <span class="keyword">elseif</span> strcmp(scal, <span class="string">'vast'</span>) == true
+        scal_crit = 4;
+    <span class="keyword">elseif</span> strcmp(scal, <span class="string">'level'</span>) == true
+        scal_crit = 5;
+    <span class="keyword">elseif</span> strcmp(scal, <span class="string">'max'</span>) == true
+        scal_crit = 6;
+    <span class="keyword">elseif</span> strcmp(scal, <span class="string">'no'</span>) == true
+        scal_crit = 0;
+    <span class="keyword">else</span>
+        disp(<span class="string">'No criteria has been selected, auto scale by default'</span>);
+        scal_crit = 1;
+    <span class="keyword">end</span>
+
+str = append(alg, <span class="string">'_'</span>, num2str(k), <span class="string">'clust_'</span>, scal);
+
+<span class="comment">% K-Means clustering choice</span>
+<span class="keyword">if</span> strcmp(alg, <span class="string">'k-means'</span>) == true
+
+    <span class="comment">% Centering and scaling</span>
+    X_center = center(X, 1);
+    X_scaled = scale(X_center, X, scal_crit);
+
+    <span class="comment">% Perform clustering</span>
+    idx = kmeans(X_scaled, k, <span class="string">'Start'</span>, <span class="string">'uniform'</span>, <span class="string">'MaxIter'</span>, 1000);
+
+
+<span class="comment">% LPCA clustering</span>
+<span class="keyword">elseif</span> strcmp(alg, <span class="string">'lpca'</span>) == true
+    idx = local_pca_lt(X, labels, k, 1);
+<span class="keyword">end</span>
+
+disp(<span class="string">'Clustering completed, computing volumes...'</span>);
+
+<span class="comment">% Compute the volumes and the mass of the clusters</span>
+net_volumes = zeros(k,1);
+mass = zeros(k,1);
+
+<span class="comment">% If 2d-axisimmetric volumes must be corrected</span>
+<span class="keyword">if</span> size(coord,2) == 2
+    vol_data = vol_data * 2 * pi;
+<span class="keyword">end</span>
+
+<span class="comment">% Partititon the data and compute volumes and mass</span>
+clust_vol = clustering(vol_data, idx);
+clust_dens = clustering(density_data, idx);
+<span class="keyword">for</span> j = 1 : k
+    net_volumes(j) = sum(clust_vol{j})*1e6;                 <span class="comment">% cm3</span>
+    mass(j) = 1e-6*net_volumes(j)*mean(clust_dens{j});      <span class="comment">% kg</span>
+<span class="keyword">end</span>
+
+disp(<span class="string">'Volumes computed. Checking the connectivity of the domain...'</span>);
+
+<span class="comment">% Build the graph from the connectivity matrix</span>
+
+<span class="comment">% Remove the boundary cells from the matrix (refers to remove_boundary.m)</span>
+data_mass = data_mass.data;
+mass_data = remove_boundary(data_mass);
+
+<span class="comment">% Build the graph</span>
+conn_matrix = mass_data(:,1:2);
+G = graph(conn_matrix(:,1)', conn_matrix(:,2)', <span class="string">'omitselfloops'</span>);
+
+<span class="comment">% Analyze the connectivity (refers to check_connectivity.m)</span>
+<span class="comment">% Partition the cell id's</span>
+cell_clust = clustering(X_data(:,1), idx);
+
+<span class="comment">% Check connectivity</span>
+[all_connected, n_sub_graph] = check_connectivity(G, cell_clust);
+
+disp(<span class="string">'Connectivity study completed. Computing mass flowrates...'</span>);
+
+<span class="comment">% Compute mass flowrates</span>
+mass_flowrates = zeros(k,k);
+
+<span class="comment">% Scanning through neighbor cells</span>
+<span class="keyword">for</span> j = 1 : size(mass_data, 1)
+    id_1 = mass_data(j,1);
+    id_2 = mass_data(j,2);
+
+    <span class="comment">% If neighbor cells belong to different cluster, compute the mass</span>
+    <span class="comment">% flowrate</span>
+    <span class="keyword">if</span> id_2 ~= 0 &amp;&amp; id_2 ~= -1 &amp;&amp; isnan(id_1) == false
+        clust_1 = idx(id_1);
+        clust_2 = idx(id_2);
+        <span class="keyword">if</span> clust_1 ~= clust_2
+            mi = mass_data(j,3);
+
+            <span class="comment">% If mass flowrate &gt; 0, the flow is going from clust_1 to</span>
+            <span class="comment">% clust_2, so store it in mass_flowrates(clust_1, clust_2); if</span>
+            <span class="comment">% the mass flowrate &lt; 0 is the opposite, store it in</span>
+            <span class="comment">% mass_flowrates(clust_2, clust_1);</span>
+
+            <span class="keyword">if</span> mi &gt; 0
+                mass_flowrates(clust_1, clust_2) = mass_flowrates(clust_1, clust_2) + mi;
+            <span class="keyword">else</span>
+                mass_flowrates(clust_2, clust_1) = mass_flowrates(clust_2, clust_1) - mi;
+            <span class="keyword">end</span>
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment">% Plot the results</span>
+<span class="keyword">if</span> dim == 2
+    x = coord(:,1);
+    y = coord(:,2);
+
+    figure(1);
+    scatter(y, x, 20, idx, <span class="string">'filled'</span>); colorbar;
+
+    <span class="comment">% Evaluate geometrical centroids</span>
+    C_geom = centroid_eval(coord, idx);
+
+    <span class="comment">% Display the number of the cluster of the scatter plot</span>
+    <span class="keyword">for</span> i = 1 : length(C_geom)
+        <span class="keyword">if</span> C_geom(i,1) ~= 0 &amp;&amp; C_geom(i,2) ~= 0
+            text(C_geom(i,2), C_geom(i,1), num2str(i), <span class="string">'Color'</span>, [1 0 0], <span class="string">'FontSize'</span>, 8);
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    xlabel(<span class="string">'X coordinate [m]'</span>);
+    ylabel(<span class="string">'Y coordinate [m]'</span>);
+    tit = append(alg, <span class="string">' '</span>, num2str(k), <span class="string">' clusters'</span>);
+    title(tit);
+
+<span class="keyword">elseif</span> dim == 3
+    x = coord(:,1);
+    y = coord(:,2);
+    z = coord(:,3);
+
+    figure(1);
+    scatter(x, z, 20, idx, <span class="string">'filled'</span>); colorbar;
+
+    C_geom = centroid_eval(coord, idx);
+
+    <span class="comment">% Display the number of the cluster of the scatter plot</span>
+    <span class="keyword">for</span> i = 1 : length(C_geom)
+        <span class="keyword">if</span> C_geom(i,1) ~= 0 &amp;&amp; C_geom(i,3) ~= 0
+            text(C_geom(i,1), C_geom(i,3), num2str(i), <span class="string">'Color'</span>, [1 0 0], <span class="string">'FontSize'</span>, 8);
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment">% Save the results into a newly created folder</span>
+dir_title = str;
+mkdir(dir_title);
+cd(dir_title);
+
+save <span class="string">clustering_results</span>
+figure(1); hold <span class="string">on</span>; saveas(gcf, <span class="string">'Cluster_output.png'</span>);
+
+<span class="comment">% Write out the files for NetSMOKE++</span>
+Volume = net_volumes;
+
+m_air = input(<span class="string">'Enter air mass flowrate [kg/s]: '</span>);
+m_fuel = input(<span class="string">'Enter fuel mass flowrate [kg/s]: '</span>);
+
+m_out = m_fuel + m_air;
+
+<span class="comment">% Calculate residence time</span>
+Tau = mass/m_out;
+
+<span class="comment">% Initialization of temperature</span>
+Temperature = 1500*ones(k,1);
+
+<span class="comment">% Modify the mass flowrates to make sure that the mass balance is perfectly</span>
+<span class="comment">% closed</span>
+disp(<span class="string">'Manually enter the reactors corresponding to air and fuel'</span>);
+
+clust_air = input(<span class="string">'Enter air inlet cluster: '</span>);
+clust_fuel = input(<span class="string">'Enter fuel inlet cluster: '</span>);
+clust_out = input(<span class="string">'Enter outlet cluster: '</span>);
+
+<span class="comment">% Caculate the mass imbalance for each reactor</span>
+mass_imbalance = zeros(k,1);
+<span class="keyword">if</span> clust_air == clust_fuel
+    <span class="keyword">for</span> j = 1 : k
+        <span class="keyword">if</span> j == clust_air
+            <span class="comment">% If positive, there is more output than input</span>
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) - m_out;
+        <span class="keyword">elseif</span> j == clust_out
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) + m_out;
+        <span class="keyword">else</span>
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j));
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">elseif</span> clust_air ~= clust_fuel
+    <span class="keyword">for</span> j = 1 : k
+        <span class="keyword">if</span> j == clust_air
+            <span class="comment">% If positive, there is more output than input</span>
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) - m_air;
+        <span class="keyword">elseif</span> j == clust_fuel
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) - m_fuel;
+        <span class="keyword">elseif</span> j == clust_out
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) + m_out;
+        <span class="keyword">else</span>
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j));
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+disp(<span class="string">'Checking mass balance...'</span>);
+
+<span class="comment">% Check mass balances</span>
+balance_check = true;
+<span class="keyword">for</span> j = 1 : k
+    <span class="keyword">if</span> abs(mass_imbalance(j)) &gt; 1e-6
+        balance_check = false;
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="keyword">if</span> balance_check == true
+    disp(<span class="string">'Mass balance satisfied!'</span>);
+<span class="keyword">elseif</span> balance_check == false
+    warning(<span class="string">'Mass imbalance detected!! Results may be inaccurate'</span>);
+<span class="keyword">end</span>
+
+<span class="comment">% Thermal losses will be assigned to cluster with max dimension</span>
+[~, clust_max] = max(net_volumes);
+
+<span class="comment">% Define parameters for heat exchange</span>
+Qloss = 11520.0;            <span class="comment">% W</span>
+A = 1.0;                    <span class="comment">% m2</span>
+Tenv = 300;                 <span class="comment">% K</span>
+Tout = 1260;                <span class="comment">% K</span>
+U = Qloss/(A*(Tout-Tenv));  <span class="comment">% W/(m2 * K)</span>
+
+<span class="comment">% Write the single reactor.dic files</span>
+<span class="keyword">for</span> j = 1 : k
+    <span class="keyword">if</span> j ~= clust_max
+        file_name = append(<span class="string">'Reactor_'</span>, num2str(j-1), <span class="string">'.dic'</span>);
+        file_id = fopen(file_name, <span class="string">'w'</span>);
+        fprintf(file_id, <span class="string">'Dictionary PerfectlyStirredReactor \n'</span>);
+        fprintf(file_id, <span class="string">'{ \n'</span>);
+        fprintf(file_id, <span class="string">'      @KineticFolder      dummy; \n'</span>);
+        fprintf(file_id, <span class="string">'      @Type               NonIsothermal-ConstantPressure; \n'</span>);
+        fprintf(file_id, <span class="string">'      @InletStatus        Inlet-Mixture; \n'</span>);
+        fprintf(file_id, <span class="string">'      @Volume             %d cm3; \n'</span>, Volume(j));
+        fprintf(file_id, <span class="string">'      @ResidenceTime      %d s;   \n'</span>, Tau(j));
+        fprintf(file_id, <span class="string">'} \n'</span>);
+        fprintf(file_id, <span class="string">'\n Dictionary Inlet-Mixture \n { \n'</span>);
+        fprintf(file_id, <span class="string">'      @Temperature        %d K;   \n'</span>, Temperature(j));
+        fprintf(file_id, <span class="string">'      @Pressure           101325.0 Pa; \n'</span>);
+        fprintf(file_id, <span class="string">'      @EquivalenceRatio   0.8;   \n'</span>);
+        fprintf(file_id, <span class="string">'      @FuelMoles          CH4 0.25 \n'</span>);
+        fprintf(file_id, <span class="string">'                          H2  0.75; \n'</span>);
+        fprintf(file_id, <span class="string">'      @OxidizerMoles      O2  0.21 \n'</span>);
+        fprintf(file_id, <span class="string">'                          N2  0.79; \n } \n'</span>);
+    <span class="keyword">else</span>
+        file_name = append(<span class="string">'Reactor_'</span>, num2str(j-1), <span class="string">'.dic'</span>);
+        file_id = fopen(file_name, <span class="string">'w'</span>);
+        fprintf(file_id, <span class="string">'Dictionary PerfectlyStirredReactor \n'</span>);
+        fprintf(file_id, <span class="string">'{ \n'</span>);
+        fprintf(file_id, <span class="string">'      @KineticFolder      dummy; \n'</span>);
+        fprintf(file_id, <span class="string">'      @Type               NonIsothermal-ConstantPressure; \n'</span>);
+        fprintf(file_id, <span class="string">'      @GlobalThermalExchangeCoefficient   %d W/m2/K; \n'</span>, U);
+        fprintf(file_id, <span class="string">'      @ExchangeArea               %d m2; /n'</span>, A);
+        fprintf(file_id, <span class="string">'      @EnvironmentTemperature     %d K;  /n'</span>, Tenv);
+        fprintf(file_id, <span class="string">'      @InletStatus        Inlet-Mixture; \n'</span>);
+        fprintf(file_id, <span class="string">'      @Volume             %d cm3; \n'</span>, Volume(j));
+        fprintf(file_id, <span class="string">'      @ResidenceTime      %d s;   \n'</span>, Tau(j));
+        fprintf(file_id, <span class="string">'} \n'</span>);
+        fprintf(file_id, <span class="string">'\n Dictionary Inlet-Mixture \n { \n'</span>);
+        fprintf(file_id, <span class="string">'      @Temperature        %d K;   \n'</span>, Temperature(j));
+        fprintf(file_id, <span class="string">'      @Pressure           101325.0 Pa; \n'</span>);
+        fprintf(file_id, <span class="string">'      @EquivalenceRatio   0.8;   \n'</span>);
+        fprintf(file_id, <span class="string">'      @FuelMoles          CH4 0.5 \n'</span>);
+        fprintf(file_id, <span class="string">'                          H2  0.5; \n'</span>);
+        fprintf(file_id, <span class="string">'      @OxidizerMoles      O2  0.21 \n'</span>);
+        fprintf(file_id, <span class="string">'                          N2  0.79; \n } \n'</span>);
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="comment">% Write the global input files with the connections</span>
+file_id = fopen(<span class="string">'Global_input.dic'</span>, <span class="string">'w'</span>);
+fprintf(file_id, <span class="string">'Dictionary ReactorNetwork \n } \n'</span>);
+fprintf(file_id, <span class="string">'@KineticPreProcessor      kinetic-mechanism; \n'</span>);
+fprintf(file_id, <span class="string">'@MinIterations            5;   \n'</span>);
+fprintf(file_id, <span class="string">'@MaxIterations            50;  \n'</span>);
+fprintf(file_id, <span class="string">'@AtomicErrorThreshold     1e-5;\n'</span>);
+fprintf(file_id, <span class="string">'@NonIsothermalErrorThreshold	1e-4; \n'</span>);
+fprintf(file_id, <span class="string">'@PerfectlyStirredReactors      0   input.cstr.0.dic \n'</span>);
+<span class="keyword">for</span> j = 1 : k
+    react_dic = append(<span class="string">'input.cstr.'</span>, num2str(j-1), <span class="string">'.dic'</span>);
+    <span class="keyword">if</span> j == k
+        fprintf(file_id, <span class="string">'%d        %s ; \n'</span>, j-1, react_dic);
+    <span class="keyword">else</span>
+        fprintf(file_id, <span class="string">'%d        %s \n'</span>, j-1, react_dic);
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+fprintf(file_id, <span class="string">'@InternalConnections   '</span>);
+non_zero = length(find(mass_flowrates ~= 0));
+count = 1;
+<span class="keyword">for</span> i = 1 : k
+    <span class="keyword">for</span> j = 1 : k
+        <span class="keyword">if</span> mass_flowrates(i,j) ~= 0 &amp;&amp; count ~= non_zero
+            fprintf(file_id, <span class="string">'                  %d   %d   %d \n'</span>, i-1, j-1, mass_flowrates(i,j));
+            count = count + 1;
+        <span class="keyword">elseif</span> mass_flowrates(i,j) ~= 0 &amp;&amp; count == non_zero
+            fprintf(file_id, <span class="string">'                  %d   %d   %d; \n'</span>, i-1, j-1, mass_flowrates(i,j));
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+
+fprintf(file_id, <span class="string">'@InputStreams   %d %d \n  %d %d ; \n'</span>, clust_air-1, m_air, clust_fuel-1, m_fuel);
+fprintf(file_id, <span class="string">'@OutputStreams  %d %d; \n'</span>, clust_out-1, m_out);
+fprintf(file_id, <span class="string">'@SpeciesToMonitor   CH4 H2 O2 CO2 CO NO NO2; \n'</span>);
+fprintf(file_id, <span class="string">'@VerbosityLevel   1; \n } \n'</span>);
+
+cd <span class="string">../</span>
+
+disp(<span class="string">'File in format .dic available in the new folder ready for NetSMOKE input'</span>);
+disp(<span class="string">'Operation terminated'</span>);
+
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Error using importdata (line 139)
+Unable to open file.
+
+Error in network_eval (line 47)
+data_solution = importdata('data_solution');
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [mass_flowrates, net_volumes, mass_imbalance] = network_eval(k)
+% This function will perform clustering with a user-selected algorithm and
+% number of clusters. The mass flowrates and the volumes of the reactors are computed 
+%
+%   *INPUT*:
+%       _k_ = number of reactors
+%
+%   *OUTPUT*:
+%       _mass flowrates_ = k x k matrix with mass flowrates
+%                        across clusters. mass_flowrates(i,j) = mass from i
+%                        to j
+%
+%       _net volumes_ = k x 1 vector of indiivdual reactor volumes
+%                       
+%
+%       _mass imbalance_ = mass imbalance of the reactors
+%
+%   *INSTRUCTIONS*:
+% In the working folder, you should have a list of .csv files exported
+% directly from Fluent. Those files are:
+%
+%   data_solution: exported variables according to the user, under the name
+%   of "data_solution"
+%
+%   data_volumes: exported cell volumes from Fluent under the name of "data_volumes"
+%
+%   data_density: exported cell density from Fluent under the name of
+%                 "data_density"
+%
+%   neighbor_cell_flowrates: exported connectivity info and mass flowrates
+%                            across neighbor cell using the udf export_neighbor_faces.c
+%                            under the name of "neighbor_cell_flowrates"
+%
+% *AVAILABLE ALGORITHMS*:
+%       _k-means_
+%       _local pca_
+%
+
+addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/
+addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/PCA_trunk/
+
+% Change default font size for plot
+set(0,'defaultaxesfontsize',16);
+set(0,'defaulttextfontsize',18);
+
+% Load the data
+data_solution = importdata('data_solution');
+data_volumes  = importdata('data_volumes');
+data_density  = importdata('data_density');
+data_mass     = importdata('neighbor_cell_flowrates');
+
+labels = data_solution.textdata;
+
+% Recognize if the case is 2D or 3D
+if strcmp(labels{4}, '       z-coordinate') == true
+    dim = 3;
+    start = 5;
+else
+    dim = 2;
+    start = 4;
+end
+
+% Build the data matrix
+X_data = data_solution.data;
+X = X_data(:, start:end);
+
+% Volume data
+data_volumes = data_volumes.data;
+vol_data = data_volumes(:, start);
+
+% Density data
+data_density = data_density.data;
+density_data = data_density(:,start);
+
+% Coordinates
+coord = X_data(:, 2:start);
+
+% Choose algorithm
+alg = input('Type k-means or lpca to select the algorithm: ', 's');
+
+% Select scaling criteria
+scal = input('Scaling criteria, available choises are: no, auto, range, pareto, vast, level, max, : ', 's');
+    if strcmp(scal, 'auto') == true
+        scal_crit = 1;
+    elseif strcmp(scal, 'range') == true
+        scal_crit = 2;
+    elseif strcmp(scal, 'pareto') == true
+        scal_crit = 3;
+    elseif strcmp(scal, 'vast') == true
+        scal_crit = 4;
+    elseif strcmp(scal, 'level') == true
+        scal_crit = 5;
+    elseif strcmp(scal, 'max') == true
+        scal_crit = 6;
+    elseif strcmp(scal, 'no') == true
+        scal_crit = 0;
+    else
+        disp('No criteria has been selected, auto scale by default');
+        scal_crit = 1;
+    end
+
+str = append(alg, '_', num2str(k), 'clust_', scal);
+
+% K-Means clustering choice
+if strcmp(alg, 'k-means') == true
+  
+    % Centering and scaling
+    X_center = center(X, 1);    
+    X_scaled = scale(X_center, X, scal_crit);
+    
+    % Perform clustering
+    idx = kmeans(X_scaled, k, 'Start', 'uniform', 'MaxIter', 1000);
+    
+    
+% LPCA clustering
+elseif strcmp(alg, 'lpca') == true
+    idx = local_pca_lt(X, labels, k, 1);
+end
+
+disp('Clustering completed, computing volumes...');
+
+% Compute the volumes and the mass of the clusters
+net_volumes = zeros(k,1);
+mass = zeros(k,1);
+
+% If 2d-axisimmetric volumes must be corrected
+if size(coord,2) == 2
+    vol_data = vol_data * 2 * pi;
+end
+
+% Partititon the data and compute volumes and mass
+clust_vol = clustering(vol_data, idx);
+clust_dens = clustering(density_data, idx);
+for j = 1 : k
+    net_volumes(j) = sum(clust_vol{j})*1e6;                 % cm3
+    mass(j) = 1e-6*net_volumes(j)*mean(clust_dens{j});      % kg
+end
+
+disp('Volumes computed. Checking the connectivity of the domain...');
+
+% Build the graph from the connectivity matrix
+
+% Remove the boundary cells from the matrix (refers to remove_boundary.m)
+data_mass = data_mass.data;
+mass_data = remove_boundary(data_mass);
+
+% Build the graph
+conn_matrix = mass_data(:,1:2);
+G = graph(conn_matrix(:,1)', conn_matrix(:,2)', 'omitselfloops');
+
+% Analyze the connectivity (refers to check_connectivity.m)
+% Partition the cell id's
+cell_clust = clustering(X_data(:,1), idx);
+
+% Check connectivity
+[all_connected, n_sub_graph] = check_connectivity(G, cell_clust);
+
+disp('Connectivity study completed. Computing mass flowrates...');
+
+% Compute mass flowrates
+mass_flowrates = zeros(k,k);
+
+% Scanning through neighbor cells
+for j = 1 : size(mass_data, 1)
+    id_1 = mass_data(j,1);
+    id_2 = mass_data(j,2);
+    
+    % If neighbor cells belong to different cluster, compute the mass
+    % flowrate
+    if id_2 ~= 0 && id_2 ~= -1 && isnan(id_1) == false
+        clust_1 = idx(id_1);
+        clust_2 = idx(id_2);
+        if clust_1 ~= clust_2
+            mi = mass_data(j,3);
+            
+            % If mass flowrate > 0, the flow is going from clust_1 to
+            % clust_2, so store it in mass_flowrates(clust_1, clust_2); if
+            % the mass flowrate < 0 is the opposite, store it in
+            % mass_flowrates(clust_2, clust_1);
+            
+            if mi > 0
+                mass_flowrates(clust_1, clust_2) = mass_flowrates(clust_1, clust_2) + mi;
+            else
+                mass_flowrates(clust_2, clust_1) = mass_flowrates(clust_2, clust_1) - mi;
+            end
+        end
+    end
+end
+
+% Plot the results
+if dim == 2
+    x = coord(:,1);
+    y = coord(:,2);
+    
+    figure(1);
+    scatter(y, x, 20, idx, 'filled'); colorbar;
+    
+    % Evaluate geometrical centroids
+    C_geom = centroid_eval(coord, idx);
+    
+    % Display the number of the cluster of the scatter plot
+    for i = 1 : length(C_geom)
+        if C_geom(i,1) ~= 0 && C_geom(i,2) ~= 0
+            text(C_geom(i,2), C_geom(i,1), num2str(i), 'Color', [1 0 0], 'FontSize', 8);
+        end
+    end
+    
+    xlabel('X coordinate [m]');
+    ylabel('Y coordinate [m]');
+    tit = append(alg, ' ', num2str(k), ' clusters');
+    title(tit);
+    
+elseif dim == 3
+    x = coord(:,1);
+    y = coord(:,2);
+    z = coord(:,3);
+    
+    figure(1);
+    scatter(x, z, 20, idx, 'filled'); colorbar;
+    
+    C_geom = centroid_eval(coord, idx);
+    
+    % Display the number of the cluster of the scatter plot
+    for i = 1 : length(C_geom)
+        if C_geom(i,1) ~= 0 && C_geom(i,3) ~= 0
+            text(C_geom(i,1), C_geom(i,3), num2str(i), 'Color', [1 0 0], 'FontSize', 8);
+        end
+    end
+end
+
+% Save the results into a newly created folder
+dir_title = str;
+mkdir(dir_title);
+cd(dir_title);
+
+save clustering_results
+figure(1); hold on; saveas(gcf, 'Cluster_output.png');
+
+% Write out the files for NetSMOKE++
+Volume = net_volumes;
+
+m_air = input('Enter air mass flowrate [kg/s]: ');
+m_fuel = input('Enter fuel mass flowrate [kg/s]: ');
+
+m_out = m_fuel + m_air;
+
+% Calculate residence time
+Tau = mass/m_out;
+
+% Initialization of temperature
+Temperature = 1500*ones(k,1);
+
+% Modify the mass flowrates to make sure that the mass balance is perfectly
+% closed
+disp('Manually enter the reactors corresponding to air and fuel');
+
+clust_air = input('Enter air inlet cluster: ');
+clust_fuel = input('Enter fuel inlet cluster: ');
+clust_out = input('Enter outlet cluster: ');
+
+% Caculate the mass imbalance for each reactor
+mass_imbalance = zeros(k,1);
+if clust_air == clust_fuel
+    for j = 1 : k
+        if j == clust_air
+            % If positive, there is more output than input
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) - m_out;
+        elseif j == clust_out
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) + m_out;
+        else
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j));
+        end
+    end
+elseif clust_air ~= clust_fuel
+    for j = 1 : k
+        if j == clust_air
+            % If positive, there is more output than input
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) - m_air;
+        elseif j == clust_fuel
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) - m_fuel;
+        elseif j == clust_out
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j)) + m_out;
+        else
+            mass_imbalance(j) = sum(mass_flowrates(j,:)) - sum(mass_flowrates(:,j));
+        end
+    end
+end
+
+disp('Checking mass balance...');
+
+% Check mass balances
+balance_check = true;
+for j = 1 : k
+    if abs(mass_imbalance(j)) > 1e-6
+        balance_check = false;
+    end
+end
+
+if balance_check == true
+    disp('Mass balance satisfied!');
+elseif balance_check == false
+    warning('Mass imbalance detected!! Results may be inaccurate');
+end
+
+% Thermal losses will be assigned to cluster with max dimension
+[~, clust_max] = max(net_volumes);
+
+% Define parameters for heat exchange
+Qloss = 11520.0;            % W
+A = 1.0;                    % m2
+Tenv = 300;                 % K
+Tout = 1260;                % K
+U = Qloss/(A*(Tout-Tenv));  % W/(m2 * K)
+
+% Write the single reactor.dic files
+for j = 1 : k
+    if j ~= clust_max
+        file_name = append('Reactor_', num2str(j-1), '.dic');
+        file_id = fopen(file_name, 'w');
+        fprintf(file_id, 'Dictionary PerfectlyStirredReactor \n');
+        fprintf(file_id, '{ \n');
+        fprintf(file_id, '      @KineticFolder      dummy; \n');
+        fprintf(file_id, '      @Type               NonIsothermal-ConstantPressure; \n');
+        fprintf(file_id, '      @InletStatus        Inlet-Mixture; \n');
+        fprintf(file_id, '      @Volume             %d cm3; \n', Volume(j));
+        fprintf(file_id, '      @ResidenceTime      %d s;   \n', Tau(j));
+        fprintf(file_id, '} \n');
+        fprintf(file_id, '\n Dictionary Inlet-Mixture \n { \n');
+        fprintf(file_id, '      @Temperature        %d K;   \n', Temperature(j));
+        fprintf(file_id, '      @Pressure           101325.0 Pa; \n');
+        fprintf(file_id, '      @EquivalenceRatio   0.8;   \n');
+        fprintf(file_id, '      @FuelMoles          CH4 0.25 \n');
+        fprintf(file_id, '                          H2  0.75; \n');
+        fprintf(file_id, '      @OxidizerMoles      O2  0.21 \n');
+        fprintf(file_id, '                          N2  0.79; \n } \n');
+    else
+        file_name = append('Reactor_', num2str(j-1), '.dic');
+        file_id = fopen(file_name, 'w');
+        fprintf(file_id, 'Dictionary PerfectlyStirredReactor \n');
+        fprintf(file_id, '{ \n');
+        fprintf(file_id, '      @KineticFolder      dummy; \n');
+        fprintf(file_id, '      @Type               NonIsothermal-ConstantPressure; \n');
+        fprintf(file_id, '      @GlobalThermalExchangeCoefficient   %d W/m2/K; \n', U);
+        fprintf(file_id, '      @ExchangeArea               %d m2; /n', A);
+        fprintf(file_id, '      @EnvironmentTemperature     %d K;  /n', Tenv);
+        fprintf(file_id, '      @InletStatus        Inlet-Mixture; \n');
+        fprintf(file_id, '      @Volume             %d cm3; \n', Volume(j));
+        fprintf(file_id, '      @ResidenceTime      %d s;   \n', Tau(j));
+        fprintf(file_id, '} \n');
+        fprintf(file_id, '\n Dictionary Inlet-Mixture \n { \n');
+        fprintf(file_id, '      @Temperature        %d K;   \n', Temperature(j));
+        fprintf(file_id, '      @Pressure           101325.0 Pa; \n');
+        fprintf(file_id, '      @EquivalenceRatio   0.8;   \n');
+        fprintf(file_id, '      @FuelMoles          CH4 0.5 \n');
+        fprintf(file_id, '                          H2  0.5; \n');
+        fprintf(file_id, '      @OxidizerMoles      O2  0.21 \n');
+        fprintf(file_id, '                          N2  0.79; \n } \n');
+    end
+end
+
+% Write the global input files with the connections
+file_id = fopen('Global_input.dic', 'w');
+fprintf(file_id, 'Dictionary ReactorNetwork \n } \n');
+fprintf(file_id, '@KineticPreProcessor      kinetic-mechanism; \n');
+fprintf(file_id, '@MinIterations            5;   \n');
+fprintf(file_id, '@MaxIterations            50;  \n');
+fprintf(file_id, '@AtomicErrorThreshold     1e-5;\n');
+fprintf(file_id, '@NonIsothermalErrorThreshold	1e-4; \n');
+fprintf(file_id, '@PerfectlyStirredReactors      0   input.cstr.0.dic \n');
+for j = 1 : k
+    react_dic = append('input.cstr.', num2str(j-1), '.dic');
+    if j == k
+        fprintf(file_id, '%d        %s ; \n', j-1, react_dic);
+    else
+        fprintf(file_id, '%d        %s \n', j-1, react_dic); 
+    end
+end
+
+fprintf(file_id, '@InternalConnections   ');
+non_zero = length(find(mass_flowrates ~= 0));
+count = 1;
+for i = 1 : k
+    for j = 1 : k
+        if mass_flowrates(i,j) ~= 0 && count ~= non_zero
+            fprintf(file_id, '                  %d   %d   %d \n', i-1, j-1, mass_flowrates(i,j));
+            count = count + 1;
+        elseif mass_flowrates(i,j) ~= 0 && count == non_zero
+            fprintf(file_id, '                  %d   %d   %d; \n', i-1, j-1, mass_flowrates(i,j));
+        end
+    end
+end
+
+
+fprintf(file_id, '@InputStreams   %d %d \n  %d %d ; \n', clust_air-1, m_air, clust_fuel-1, m_fuel);
+fprintf(file_id, '@OutputStreams  %d %d; \n', clust_out-1, m_out);
+fprintf(file_id, '@SpeciesToMonitor   CH4 H2 O2 CO2 CO NO NO2; \n');
+fprintf(file_id, '@VerbosityLevel   1; \n } \n');
+
+cd ../
+    
+disp('File in format .dic available in the new folder ready for NetSMOKE input');
+disp('Operation terminated');
+
+end
+
+
+##### SOURCE END #####
+--></body></html>
