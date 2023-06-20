@@ -1,4 +1,7 @@
 function [mass_flow_new] = remove_small_connections(mass_flowrates)
+%
+% function [mass_flow_new] = remove_small_connections(mass_flowrates)
+%
 % This function will remove small connections in reactor networks
 
 [n,m] = size(mass_flowrates);

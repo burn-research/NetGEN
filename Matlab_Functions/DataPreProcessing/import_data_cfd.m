@@ -4,8 +4,7 @@ function [X, labels, dim, coord] = import_data_cfd(opt)
 % all the matrices and vectors in the struct type data_output
 % INPUTS:
 %
-%   opt = string (available options are: 'all', 'major', 'coord',
-%   'reduced_set')
+%   opt = 's' available options are: 'all', 'major', 'coord', 'reduced_set'
 %
 % OUTPUTS:
 %   X_data = [mxn] matrix of unscaled CFD data
@@ -79,6 +78,100 @@ switch select_data
 
     case 'reduced_set'
 
+        major_sp = {'h2o', 'co2', 'co', 'ch4', 'oh'};
+        id_keep = [];
+        count = 1;
+        for i = 1 : length(major_sp)
+            lab = append('molef-', major_sp{i});
+            for j = 1 : length(labels)
+                current_label = strrep(labels{j}, ' ', '');
+                if strcmp(lab, current_label) == true
+                    id_keep(count) = j;
+                    count = count + 1;
+                end
+            end
+        end
+
+        % Based only on T, f, tau, Tvar which should be contained in new
+        % solution files from fluent
+        if isfile('case_info.mat') == true
+            load case_info.mat;
+        else
+            error('case_info.mat not found. Please refer to network_eval.m');
+        end
+
+        sp_labels = labels(start+1:end);
+        sp_labels_c = rewrite_fluent_labels(sp_labels);   % Species labels
+        comp = X_data(:,start+1:end);                   % Mole fractions
+        Y = mole_to_mass(comp, sp_labels_c);
+
+        % Define the progress variable
+        f = sum(Y,2);
+        feq = max(f);
+        fnorm = f/feq;
+
+        f = mixture_fraction(Y, sp_labels, fuel);
+
+        if isfield(opt, 'Mixing') == true
+            data_mixing = importdata('data_mixing');
+            mix_time = data_mixing.data(:,4:end);
+        end
+
+        % Check for the existence of residence time distribution data
+        if isfile('data_tau') == true && isfile('data_velocity') == true && isfile('data_angle') == true && isfile('data_Trms') == true
+            data_tau = importdata('data_tau');
+            tau = data_tau.data(:,start);
+            tau(tau>1) = 1;
+
+            data_var = importdata('data_Trms');
+            Tvar = data_var.data(:,4);
+
+            data_velocity = importdata('data_velocity');
+            vel = data_velocity.data(:,start);
+
+            data_angle = importdata('data_angle');
+            angle = data_angle.data(:,start);
+            X = [-log10(tau) X_data(:,start)/10 f vel angle/100];
+
+            if isfield(opt, 'Mixing') == true
+                X = [X mix_time];
+            end
+
+        else
+            warning('data_tau not found. Rename the file or insert residence time distribution data');
+            X = [X_data(:,start) f coord(:,2)];
+        end
+
+    case 'velocity_only'
+        data_velocity = importdata('data_velocity');
+        vel = data_velocity.data(:,start);
+
+        data_angle = importdata('data_angle');
+        angle = data_angle.data(:,start);
+
+        X = [vel angle];
+
+        labels = {'velocity', 'angle'};
+
+    case 'pure_h2'
+        major_sp = {'o2', 'oh', 'h2o', 'h2', 'h', 'o', 'h2o2', 'ho2', 'n2'};
+        id_keep = [];
+        count = 1;
+        for i = 1 : length(major_sp)
+            lab = append('molef-', major_sp{i});
+            for j = 1 : length(labels)
+                current_label = strrep(labels{j}, ' ', '');
+                if strcmp(lab, current_label) == true
+                    id_keep(count) = j;
+                    count = count + 1;
+                end
+            end
+        end
+        
+        X = [X_data(:,start) X_data(:,id_keep)];
+
+    case 'reduced_coord'
+
         major_sp = {'h2o', 'co2', 'co'};
         id_keep = [];
         count = 1;
@@ -132,7 +225,7 @@ switch select_data
 
             data_angle = importdata('data_angle');
             angle = data_angle.data(:,start);
-            X = [-log10(tau) X_data(:,start)/10 f vel angle];
+            X = [-log10(tau) X_data(:,start)/10 vel angle/100  X_data(:,id_keep)];
 
             if isfield(opt, 'Mixing') == true
                 X = [X mix_time];
@@ -143,12 +236,15 @@ switch select_data
             X = [X_data(:,start) f coord(:,2)];
         end
 
-    case 'pure_h2'
-        major_sp = {'o2', 'oh', 'h2o', 'h2', 'h', 'o', 'h2o2', 'ho2', 'n2'};
+            X = [X coord*10];
+
+    case 'ammonia'
+
+        major_sp = {'o2', 'nh3', 'oh', 'no', 'h2', 'no2', 'o', 'h'};
         id_keep = [];
         count = 1;
         for i = 1 : length(major_sp)
-            lab = append('molef-', major_sp{i});
+            lab = major_sp{i};
             for j = 1 : length(labels)
                 current_label = strrep(labels{j}, ' ', '');
                 if strcmp(lab, current_label) == true
@@ -159,5 +255,21 @@ switch select_data
         end
         
         X = [X_data(:,start) X_data(:,id_keep)];
+
+        data_velocity = importdata('data_velocity');
+        vel = data_velocity.data(:,start);
+
+        data_angle = importdata('data_angle');
+        angle = data_angle.data(:,start);
+
+        X = [X vel angle];
+
+        data_tau = importdata('data_tau');
+
+        tau = data_tau.data(:,4);
+        tau(tau>1) = 1;
+
+        X = [-log10(1+tau)/10 X vel angle];
+
 end
 

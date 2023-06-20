@@ -1,4 +1,7 @@
-function [idx_new, new_volumes] = remove_small_clusters(net_volumes, vol_thresh, idx, G)
+function [idx_new, new_volumes, n_small] = remove_small_clusters(net_volumes, vol_thresh, idx, G)
+%
+% function [idx_new, new_volumes, n_small] = remove_small_clusters(net_volumes, vol_thresh, idx, G)
+%
 % This function will remove clusters whose volume is below the threshold
 % vol_thresh. It will produce a new cluster labelling vector idx_new by
 % updating the current idx. The clusters will be reassigned according to
@@ -28,9 +31,16 @@ end
 % Initialize the new index vector
 idx_new = idx;
 
+iter = 1;
+n_small = 0;
 while isempty(find(new_volumes < vol_thresh)) == false
     
     clust_to_remove = find(new_volumes < vol_thresh);
+    disp(length(clust_to_remove))
+
+    if iter == 1
+        n_small = length(clust_to_remove);
+    end
     
     for i = 1 : length(clust_to_remove)
         
@@ -90,7 +100,7 @@ while isempty(find(new_volumes < vol_thresh)) == false
     % Update cell partition
     cell_part = clustering(cell_id, idx_new);
     
-    
+    iter = iter + 1;
 end
 
 % Check connection again

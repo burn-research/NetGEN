@@ -1,4 +1,7 @@
 function [G] = weighted_graph(X, global_connect)
+% 
+% function [G] = weighted_graph(X, global_connect)
+%
 % X = data matrix
 % global_coonect = m x 2 Matrix with the cell connections
 % We want to build a weighted graph according to the euclidean distance

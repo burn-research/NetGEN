@@ -1,6 +1,10 @@
 % Main function for PCA. The function provides a tool for data processing
 % (centering and scaling), PCA analysis, PCs retention and original data
 % reconstruction
+%
+% function [sort_eigval, sort_eigvec, ret_eigval, ret_eigvec, n_eig, U_scores, W_scores, gamma, scaled_data, rec_data, X_ave] = pca_lt(raw_data, cent_crit, scal_crit, stop_rule, inputs)
+%
+
 
 function [sort_eigval, sort_eigvec, ret_eigval, ret_eigvec, n_eig, U_scores, W_scores, gamma, scaled_data, rec_data, X_ave] = pca_lt(raw_data, cent_crit, scal_crit, stop_rule, inputs)
 

@@ -1,4 +1,4 @@
-function [output] = write_global_input(R, mass_flowrates, m_ext, opt)
+function [output] = write_global_input_diffusion(R, mass_flowrates, m_ext, areas, distances, opt)
 % This function will create the global input file for netsmoke
 
 % Write the global input files with the connections
@@ -10,6 +10,7 @@ fprintf(file_id, '@MaxIterations            500;  \n');
 fprintf(file_id, '@AtomicErrorThreshold     1e-4;\n');
 fprintf(file_id, '@NonIsothermalErrorThreshold	1e-4; \n');
 fprintf(file_id, '@MaxUnbalance     0.05; \n');
+fprintf(file_id, '@DiffusionEnabled     true; \n');
 
 % Check how many PFR are present in R
 pfr_count = 0;
@@ -72,10 +73,10 @@ for i = 1 : k
     for j = 1 : k
         if mass_flowrates(i,j) ~= 0
             if count_conn ~= n_conn
-                fprintf(file_id, '                  %d   %d   %d \n', i-1, j-1, mass_flowrates(i,j));
-                count_conn = count_conn + 1;
+                    fprintf(file_id, '                  %d   %d   %d   %d   %d \n', i-1, j-1, mass_flowrates(i,j), areas(i,j), distances(i,j));
+                    count_conn = count_conn + 1;          
             elseif count_conn == n_conn
-                fprintf(file_id, '                  %d   %d   %d; \n', i-1, j-1, mass_flowrates(i,j));
+                fprintf(file_id, '                  %d   %d   %d   %d   %d; \n', i-1, j-1, mass_flowrates(i,j), areas(i,j), distances(i,j));
             end
         end
     end

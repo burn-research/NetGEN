@@ -11,6 +11,9 @@ function [output] = post_process_results(path_to_output, path_to_input, opt)
 
 % Get outlet reactor
 r_out = get_outlet_reactor(path_to_input);
+if length(r_out) ~=1 
+    r_out = r_out(1);
+end
 
 % Select species to export
 if isfield(opt, 'ExportSpecies') == true

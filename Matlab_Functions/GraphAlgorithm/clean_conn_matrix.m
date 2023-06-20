@@ -1,4 +1,7 @@
 function [global_connect_new] = clean_conn_matrix(global_connect)
+%
+% [global_connect_new] = clean_conn_matrix(global_connect)
+%
 % global_connect = matrix with the connections of the cell on the first two
 % columns. We need to eliminate duplicates, loops in the graph, boundary
 % cells

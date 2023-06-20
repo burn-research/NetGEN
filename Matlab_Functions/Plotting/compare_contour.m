@@ -25,7 +25,7 @@ while end_cycle == false
         
         % Find variable of interest
         for j = 1 : length(labels)
-            ss = extractBefore(labels{j}, '(');
+            ss = extractBefore(labels{j}, '_x');
             if strcmp(ss, var_name) == true
                 id = j;
             end
@@ -47,7 +47,8 @@ Y_net_contour = zeros('like', Y_cfd);
 for i = 1 : length(idx)
     Y_net_contour(i) = Y_net(idx(i));
 end
-colormap("winter(20)")
+cmap = brewermap(50, '-RdBu');
+colormap(cmap);
 
 % Get colorbar limits
 ll = cb.Limits;
@@ -67,7 +68,7 @@ ylabel('Y coordinate [m]');
 ax = gca; ax.TickLabelInterpreter = 'latex';
 fig = gcf; fig.Units = 'centimeters';
 fig.Position = [15 15 14 16];
-colormap('winter(20)');
+colormap(cmap);
 
 hold on;
 plot(zeros(100,1), linspace(min(coord(:,1)), max(coord(:,1)), 100), 'k--', 'LineWidth',2);

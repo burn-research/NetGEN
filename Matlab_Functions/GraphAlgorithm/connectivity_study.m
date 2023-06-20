@@ -1,4 +1,9 @@
-function [n_subgraphs, subgraph_sizes, nodes_in_subgraphs, spared_cells, spared_cells_tot, subgraphs] = connectivity_study(G, cell_id, idx, plot, coord)
+function [n_subgraphs, subgraph_sizes, nodes_in_subgraphs, spared_cells, spared_cells_tot, subgraphs] = ...
+    connectivity_study(G, cell_id, idx, plot, coord)
+%
+% function [n_subgraphs, subgraph_sizes, nodes_in_subgraphs, spared_cells, spared_cells_tot, subgraphs] = ...
+%    connectivity_study(G, cell_id, idx, plot, coord)
+%
 % This function will assess useful parameters to evaluate the geometrical
 % connectivity of a clustering. 
 %   INPUTS:
@@ -43,7 +48,7 @@ for i = 1 : k
     n_subgraphs(i) = length(binsizes);                      % Number of subgraphs in cluster j
     nodes_in_subgraphs{i} = bins;                           % Cell array with node id in each subgraph
     subgraph_sizes{i} = binsizes;                           % Size of each subgraph
-    binsize_sort = sort(binsizes, 'descend');
+    binsize_sort = sort(binsizes, 'descend');               % Sort binsizes from biggest to smallest
     spared_cells(i) = sum(binsize_sort(2:end));             % Total number of spared cell in cluster j
     subgraphs{i} = H;
 end

@@ -1,4 +1,7 @@
 function [all_connected, n_sub_graphs] = check_connectivity(G, cell_partition)
+%
+% [all_connected, n_sub_graphs] = check_connectivity(G, cell_partition)
+%
 % This function will check if a clustering results in geometrically
 % connected clusters.
 %
@@ -22,7 +25,7 @@ n_sub_graphs = zeros(k,1);
 for j = 1 : k
     cell_clust = cell_partition{j};         % Cell ids contained in cluster j
     H = subgraph(G, cell_clust);            % Subgraph representing cluster j
-    [bins, binsizes] = conncomp(H);         % Disconnected component in graph H
+    [~, binsizes] = conncomp(H);            % Disconnected component in graph H
     n_sub_graphs(j) = length(binsizes);     % Number of disconnected components
 end
 

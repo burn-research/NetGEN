@@ -1,4 +1,7 @@
 function [G] = create_graph(cell_id, conn_matrix)
+%
+% function [G] = create_graph(cell_id, conn_matrix)
+%
 % This function will create an output graph G from the vector of the cell
 % node identification number and the connectivity matrix from Fluent
 

@@ -1,4 +1,7 @@
 function [C] = get_cluster_centroids(X, idx)
+%
+% function [C] = get_cluster_centroids(X, idx)
+%
 % This function will calculate the centroids given the data matrix X and
 % the clustering index idx
 % OUTPUT

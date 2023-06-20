@@ -1,11 +1,9 @@
-function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info)
-%% Main function description
-% This function builds a CRN model from the CFD data using unsupervised
-% clustering and graph algorithms. The input and outputs of the code are
-% described below
+function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
+%% This function will perform clustering with a user-selected algorithm and
+% number of clusters. The mass flowrates and the volumes of the reactors are computed 
 %
-%   *INPUTS*:
-%       k = initial number of clusters
+%   *INPUT*:
+%       _k_ = number of reactors
 %
 %       inlet_streams = cell array vector containing the information of the
 %                       inlet conditions. The length is equal to the number
@@ -25,21 +23,22 @@ function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = netwo
 %                   case_info.Qdot = Estimated heat losses of the system
 %
 %   *OUTPUT*:
-%       mass corrected_ = k x k matrix with mass flowrates
-%                        across clusters corrected to match mass balance. 
-%                        mass_corrected(i,j) = mass from i to j [kg/s]
+%       _mass flowrates_ = k x k matrix with mass flowrates
+%                        across clusters. mass_flowrates(i,j) = mass from i
+%                        to j
 %
-%       net volumes = vector of indivdual reactor volumes
+%       _net volumes_ = k x 1 vector of indiivdual reactor volumes
 %
-%       bc_mass_flowrarates = k x 2 vector. Element (i,1) is the external
+%       _bc_mass_flowrarates = k x 2 vector. Element (i,1) is the external
 %       mass input in reactor i, element (i,2) is the output from reactor i
 %
-%       idx = n_cells x 1 vector with the clustering index
+%       _idx_ = n_cells x 1 vector with the clustering index
 %
-%       X = n_cells x n_vars data matrix (not scaled, not centered)
-%       
-%       infos = structured variable containing info from the simulation
-%       (e.g. computational time required, final summary of results...)
+%       _X_data_ = n_cells x n_vars data matrix (not scaled, not centered)
+%                       
+%
+%       _mass imbalance_ = mass imbalance of the reactors
+%
 %
 %
 %   *INSTRUCTIONS*:
@@ -69,13 +68,15 @@ function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = netwo
 %
 % *BEFORE USING THE CODE*
 %
-% You should set-up some important variables for clustering preferences.
-% The most important options are reported below, and you should configure
-% them by selecting appropriate fields for the variable opt_global
+% You should set-up some important variables for clustering preferences
 %
-% At the end of the clustering, the final inputs for the solver NetSMOKE++
-% are written.
-% Each reactor is also a variable with several attributes, in the form of a struct array:
+%   select_data: string format, 'all' for all variables, 'major' for major
+%   species
+%
+% The code will detect the zones in the combustor. The nodes which do not
+% communicate with each other will be reassigned based on graph algorithms
+%
+% Each reactor will have several attributes, in the form of a struct array:
 %
 % R.id = Reactor identifier (integer from 0 to number of reactors)
 % R.Type = 'cstr' or 'pfr' (string)
@@ -86,93 +87,31 @@ function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = netwo
 % R.A = Heat transfer surface [m2]
 % R.Tau = Residence time [s]
 % R.Qdot = Heat losses [W]
-%
-% If you have a stable version of NetSMOKE compiled on your machine, you
-% can perform directly the simulation by setting the appropriate path to
-% the executable file SeReNetSMOKEpp.sh in the Run.sh file (if you are
-% using Mac)
 
 init_time = datetime;
 
-% Make sure that those paths are added
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/PCA_trunk/
-
-% Add the subpath
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/Clustering/
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/CRNPostProcessing/
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/DataPreProcessing/
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/GraphAlgorithm/
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/Plotting/
-addpath /Users/matteosavarese/Desktop/Dottorato/Data_Furnace/Data_CFD/CRN_trunk/PostProcessCFD/
-
-
-% Change default font size for plot
-set(0,'defaultaxesfontsize',18);
-set(0,'defaulttextfontsize',18);
-set(0, 'defaulttextinterpreter', 'latex');
-
-close all; 
-
-%% Configure global options
-% Select the algorithm, available options: k-means, lpca
-
-% LPCA options
-% opt_global.Alg = 'lpca';
-% opt_global.StopRule = 'eigs';
-% opt_global.Inputs = 2;
-% opt_global.Precond = true;
-% opt_global.Plot = true;
-% opt_global.Initialization = 2; % 1 = random, 2 = uniform, 3 = FPCA
-
-% K-Means options
-opt_global.Alg = 'k-means';
-opt_global.Start = 'uniform';
-opt_global.MaxIter = 1000;
-
-% Simulation options
-opt_global.KineticMech = 'Polimi';      % gri3.0, gri2.11, SanDiego, Polimi
-opt_global.PostProcessing = true;       % Decide if you want to export the results
-opt_global.SolveEnergy = false;         % Decide if you want to solve the energy equation
-opt_global.RunSimulation = true;        % Decide if you want to run the simulation
-opt_global.PlotContour = false;         % Decide to plot contours    
-opt_global.PlotProfile = false;         % Decide to plot temperature profile
-opt_global.KineticCorrections = true;   % Decide to apply kinetic corrections
-opt_global.DataVariance = true;         % Decide to inlcude data variance
-
-% Data pre-processing options
-opt_global.OptData = 'reduced_set';     % See import_data_cfd.m for more info
-opt_global.Mixing = true;
-opt_global.Center = 1;
-opt_global.Scale = 'range';
-
-% K-Means options
-opt_global.Alg = 'k-means';             % See custom_cluster.m for more info
-opt_global.Start = 'uniform';
-opt_global.MaxIter = 1000;
-
-% Check diffusion rates
-opt_global.CheckDiffusion = false;      % Check diffusion fluxes (you need the diffusion_fluxes file)
-
-% Write output file 
-opt_global.WriteFile = true;
-
-% Options for reassigning nodes
-opt_global.VolumeThreshold = 0.005;         % Decide to remove small reactors 
-opt_global.ReassignCriterion = 'volume';
-
 %% Data import section
 
-% Import other data
-data_volumes  = importdata('data_volumes');
-data_density  = importdata('data_density')  ;
-data_mass     = importdata('Neighbours_cell_flows');
-data_velocity = importdata('data_velocity');
-data_solution = importdata('data_solution');
+% Check existence of option DataPath
+if isfield(opt_global, 'DataPath') == false
+    error('Path to data not available in the options. Impossible to retrieve data');
+end
 
-if isfile('data_tau') == true
+% Import other data
+data_volumes  = importdata(append(opt_global.DataPath, 'data_volumes'));
+data_density  = importdata(append(opt_global.DataPath, 'data_density'))  ;
+data_mass     = importdata(append(opt_global.DataPath, 'Neighbours_cell_flows'));
+data_velocity = importdata(append(opt_global.DataPath, 'data_velocity'));
+data_solution = importdata(append(opt_global.DataPath, 'data_solution'));
+
+if isfile(append(opt_global.DataPath, 'data_tau')) == true
     disp('Importing also residence time data');
-    data_tau = importdata('data_tau');
+    data_tau = importdata(append(opt_global.DataPath, 'data_tau'));
+end
+
+% Check for diffusion data
+if isfile(append(opt_global.DataPath, 'data_viscosity'))
+    data_viscosity = importdata(append(opt_global.DataPath, 'data_viscosity'));
 end
 
 % Extract the data
@@ -197,9 +136,14 @@ density_data = data_density(:,start);
 vel_data = data_velocity.data;
 vel_data = vel_data(:,start);
 
+% Viscosity data
+if isfile('data_viscosity')
+    viscosity = data_viscosity.data(:,start);
+end
+
 % Get mixture fraction
 if isfield(opt_global, 'Precond') == true
-    load case_info;
+    load(append(opt_global.DataPath, 'case_info.mat'));
     data_comp = importdata('data_solution');
     comp = data_comp.data;
     comp = comp(:,start+1:end);
@@ -280,6 +224,9 @@ disp('Performing unsupervised clustering...');
 clust_time_start = datetime;
 
 idx = custom_cluster(k, X, labels, alg, opt_global);
+scatter(coord(:,2), coord(:,1), 5, idx, 'filled');
+pause;
+close all;
 
 clust_time_end   = datetime;
 infos.ClusteringTime = clust_time_end - clust_time_start;
@@ -333,7 +280,7 @@ disp('Connectivity study completed. Re-assigning nodes...');
 % Re-assign nodes for connectivity
 graph_time_start = datetime;
 
-% Re-assign options (refer to reassign_nodes.m)
+% Re-assign options
 opt_r.Criterion = 'Euclidean';
 opt_r.X = X_scaled;
 opt_r.ReassignCriterion = 'volume';
@@ -348,6 +295,7 @@ if k_new ~= k
     mess = append(num2str(clust_removed), ' has been removed');
     k = k_new;
 end
+% Get infos
 graph_time_end = datetime;
 infos.GraphTime = graph_time_end - graph_time_start;
 
@@ -358,7 +306,7 @@ mass = zeros(k,1);
 
 % If 2d-axisimmetric volumes must be corrected
 if size(coord,2) == 2
-    vol_data = vol_data * 2 * pi * 0.343/0.2708;
+     vol_data = vol_data; % * 2 * pi;
 end
 
 % Partititon the data and compute volumes and mass
@@ -373,7 +321,7 @@ end
 
 %% Remove the clusters below 0.01% of the total volume
 opt_global.RemoveSmall = true;
-opt_global.RemoveThreshold = 5e-6;
+opt_global.RemoveThreshold = 1e-6;
 if isfield(opt_global, 'RemoveSmall') == true
     fprintf('Removing small clusters... \n');
 
@@ -385,7 +333,8 @@ if isfield(opt_global, 'RemoveSmall') == true
 
     vol_thresh = sum(net_volumes) * f_vol;
     fprintf('\n Removing clusters smaller than %d cm3... \n', vol_thresh);
-    [idx_new, new_volumes] = remove_small_clusters(net_volumes, vol_thresh, idx, G);
+    [idx_new, new_volumes, n_small] = remove_small_clusters(net_volumes, vol_thresh, idx, G);
+    infos.NSmall = n_small;
     
     k_new = max(idx_new);
     k = k_new;
@@ -436,13 +385,6 @@ for j = 1 : size(mass_data, 1)
     end
 end
 
-%% Calculate diffusive fluxes
-% Import diffusion fluxes data
-if opt_global.CheckDiffusion == true
-    mf_diffusion = check_diffusive_fluxes('Data_diffusive.xlsx');
-    infos.DiffusiveFluxes = mf_diffusion;
-end
-
 %% Display results
 % Plot the results
 if isfield(opt_global, 'Plot')
@@ -470,8 +412,6 @@ end
         
 % Evaluate both global and local mass unbalance
 disp('Checking mass balance...');
-
-% Get split ratio, remove small connections and get the new mass flowrates
 
 % Select true to correct the mass flowrates, false to keep the original
 % calculated value
@@ -531,6 +471,7 @@ mass_corrected = mass_flowrates;
 dir_title = str;
 mkdir(dir_title);
 cd(dir_title);
+infos.MainDir = dir_title;
 
 save clustering_results
 if plt == true
@@ -552,6 +493,8 @@ if isfield(opt_global, 'KineticMech') == true
 else
     netsmoke_dir = append(dir_title, '_gri3.0');
 end
+
+infos.NetSmokeDir = netsmoke_dir;
 
 % Create a new folder
 mkdir(netsmoke_dir);
@@ -602,6 +545,28 @@ if opt_global.DataVariance == true
     fprintf('Temperature variance data are present and they are being processed... \n');
 end
 
+%% Check for diffusive fluxes between reactors
+write_input_diffusion = false;
+if isfield(opt_global, 'Diffusion')
+    % Calculate distance
+    DD = calc_cluster_distance(coord, idx);
+    % Subgraphs
+    [~, ~, ~, ~, ~, subgraphs] = ...
+        connectivity_study(G, val(:,1), idx, false, coord);
+    % Calculate contact surface
+    data_neighbors = importdata('../../Neighbours_cell_flows');
+    val_neighbors  = data_neighbors.data;
+    Ab = calc_boundary_surface(G, subgraphs, idx, val(:,1), val_neighbors);
+    Ab = Ab * 2 * pi;
+    % Calculate diffusion fluxes
+    Y = data_solution.data(:, start+1:end);
+    Dm = estimate_diffusion_fluxes(Y, DD, Ab, viscosity, idx);
+    disp('Diffusive fluxes successfully estimated');
+    % Flag to write input for diffusion
+    write_input_diffusion = true;
+end
+
+%% Create the reactors objects
 switch en_eq
     case true
 
@@ -613,7 +578,7 @@ switch en_eq
             if strcmp(R.Type, 'cstr') == true
                 R.V = net_volumes(i);
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);
-                R.P = 101325;
+                R.P = case_info.P;
                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});
 
                 if max(x_clust{i}) < 0.0
@@ -624,7 +589,7 @@ switch en_eq
                         R.Tmean = R.T;
                         % Check if data of temperature variance is present
                         if opt_global.DataVariance == false
-                            R.Tvar  = 0.10*R.Tmean;
+                            R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
                         else
                             R.Tvar = mean(Tvar_clust{i});
                         end
@@ -691,12 +656,11 @@ switch en_eq
                 R.Mf  = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);                % kg/s
                 R.Tau = mass(i)/R.Mf;                                                   % s
                 R.L = abs(max(coord_clust{i}(:,1)) - min(coord_clust{i}(:,1)))*1000;    % mm
-                R.P = 101325;
+                R.P = case_info.P;
                 R.T = 1500;
                 R.Y = {'O2:0.21', 'N2:0.79'};
             end
             
-            % Write input of the single reactor
             output = write_reactor_input(R);
             
             % Append R to the list
@@ -713,13 +677,14 @@ switch en_eq
             
             % If it is a CSTR then we need volume and mass flowrate
             if strcmp(R.Type, 'cstr') == true
-                R.V = net_volumes(i)/sum(net_volumes)*343000;
-                R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);
-                R.P = 101325;
 
-                %R.T = sum(weight_T_clust{i})/sum(weight_clust{i});
-                R.T = (max(T_clust{i}) + mean(T_clust{i}))*0.5;
-                %R.T = max(T_clust{i});
+                % Set main attributes
+                R.V = net_volumes(i);
+                R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);
+                R.P = case_info.P;
+
+%                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});
+                R.T = max(T_clust{i});
 
                 R.Y = {'O2:0.21', 'N2:0.79'};   % Mole fractions                
                 R.isothermal = true;
@@ -727,6 +692,7 @@ switch en_eq
                 % If it's an inlet, keep it isothermal
                 if isempty(inlets{i}) == false
                     R.V = 0.01;
+
                 % Check if the reactor is very small, in that case change
                 % the ODE settings
                 else
@@ -741,14 +707,17 @@ switch en_eq
                 if R.T > 1000 && opt_global.KineticCorrections == true
                     R.KineticCorrections = true;
                     R.Tmean = R.T;
-                    %R.Tmean = mean(T_clust{i});
                     % Check if data of temperature variance is present
                     if opt_global.DataVariance == false
-                        R.Tvar  = 0.25*R.Tmean;
+                        R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
                     else
                         R.Tvar = max(Tvar_clust{i});
-                        %R.Tvar = mean(Tvar_clust{i});
                     end
+                end
+
+                % Write input of the single reactor
+                if write_input_diffusion == true
+                    R.TurbDiff = mean(viscosity(idx==i));
                 end
                 
             % If it is a PFR we need the mass flowrate, residence time and diameter
@@ -756,7 +725,7 @@ switch en_eq
                 R.Mf  = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);            % kg/s
                 R.Tau = mass(i)/R.Mf;                                                     % s
                 R.L = abs(max(coord_clust{i}(:,1)) - min(coord_clust{i}(:,1)))*1000;     % mm
-                R.P = 101325;
+                R.P = case_info.P;
                 R.T = mean(T_clust{i});
                 R.Y = {'O2:0.21', 'N2:0.79'};
             end
@@ -826,7 +795,18 @@ for i = 1 : n_in
     m_ext(new_connections(i,1),1) = new_connections(i,3)*a;
 end
 
-% Write global input
+% If diffusion is active we need to adjust dimensions of areas and
+% distances
+if isfield(opt_global, 'Diffusion')
+    Anew = zeros(size(mass_netsmoke));
+    Dnew = ones(size(mass_netsmoke));
+
+    [sz1, sz2] = size(Ab);
+    Anew(1:sz1, 1:sz2) = Ab;
+    Dnew(1:sz1, 1:sz2) = DD;
+end
+
+%% Write NetSMOKE++ inputs
 if isfield(opt_global, 'KineticMech') == true
     kin_mech = opt_global.KineticMech;
 else
@@ -850,9 +830,24 @@ switch kin_mech
         opt_out.Chemfile = '/Users/matteosavarese/Desktop/Dottorato/Kinetics/GRI_2_11/Kinetics.cki.txt';
         opt_out.Thermofile = '/Users/matteosavarese/Desktop/Dottorato/Kinetics/GRI_2_11/Thermo.dat.txt';
         opt_out.KineticPath = true;
+    case 'Stagni'
+        opt_out.Chemfile = '/Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Stagni/chem.dat';
+        opt_out.Thermofile = '/Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Stagni/therm.dat';
+        opt_out.KineticPath = true;
+    case 'Otomo'
+        opt_out.Chemfile = '/Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Otomo/otomo.inp';
+        opt_out.Thermofile = '/Users/matteosavarese/Desktop/Dottorato/Ammonia_SNCR_Project/Open_Smoke_simulations/Otomo/otomo_therm.dat';
+        opt_out.KineticPath = true;
 end
 
-output = write_global_input(R_list, mass_netsmoke, m_ext, opt_out);
+opt_out.SpeciesMonitor = {'NO', 'NH3'};
+
+% Check if diffusion input must be written
+if write_input_diffusion == false
+    output = write_global_input(R_list, mass_netsmoke, m_ext, opt_out);
+else
+    output = write_global_input_diffusion(R_list, mass_netsmoke, m_ext, Anew, Dnew, opt_out);
+end
 
 % Write .sh file
 if isfile('Run.sh') == false
@@ -903,8 +898,9 @@ else
     pp = input('Post processing the results? Enter true or false: ');
 end
 
+pp = true;
 if pp == true
-    opt_global.ExportSpecies = {'NO', 'NO2', 'N2O'};
+    opt_global.ExportSpecies = {'NO', 'NO2', 'N2O', 'NH3'};
     output_species = post_process_results('Output', 'input.dic', opt_global);
     fprintf('\n Output species: \n');
     for i = 1 : length(output_species.Species)
@@ -982,6 +978,92 @@ if isfield(opt_global, 'PlotProfile') == true
         disp('Plotting network profile...');
         [y_axis, x_net, y_cfd, x_cfd] = plot_network_profile(idx, coord, T, 'Output/', plt);
     end
+end
+
+% Plot NO contour
+plotNO = false;
+if plotNO == true
+    Y_net = plot_network_contour(idx, coord, 'NO', 'Output/');
+
+    % Restrict domain to y > 0
+    id0 = find(coord(:,1) > 0);
+    coord_0 = coord(id0,:);
+    Y_net0 = Y_net(id0);
+
+    % Meshgrid
+    xmesh = linspace(0, max(coord(:,2)), 500);
+    ymesh = linspace(0, max(coord(:,1)), 500);
+    [XX, YY] = meshgrid(xmesh, ymesh);
+
+    % Interpolate solution
+    Ynet_cont = griddata(coord_0(:,2), coord_0(:,1), Y_net0, XX, YY);
+
+    % Plot contour
+    figure;
+    contourf(XX, YY, Ynet_cont, 50, 'LineStyle','none');
+    hold on;
+    contourf(-XX, YY, Ynet_cont, 50, 'LineStyle','none');
+    cmap = brewermap(25, '-RdBu');
+    colormap(cmap);
+    fig = gcf; fig.Units = 'centimeters';
+    fig.Position = [15 15 10 18];
+    cb = colorbar;
+end
+
+% Compare contours
+compare_contours = true;
+if compare_contours == true
+    
+    % Select index of the variable to plot
+    id = 11;
+    varname = 'H';
+    Y_cfd = data_solution.data(:,id);
+    [Y_net, Y_net_contour] = compare_contour(Y_cfd, varname, 'Output/', idx, coord);
+
+    close;
+
+    % Plot contours
+    % Restrict domain to y > 0
+    id0 = find(coord(:,1) > 0);
+    coord_0 = coord(id0,:);
+    Y_net0 = Y_net_contour(id0);
+    Y_cfd0 = Y_cfd(id0);
+
+    % Meshgrid
+    xmesh = linspace(0, max(coord(:,2)), 500);
+    ymesh = linspace(0, max(coord(:,1)), 500);
+    [XX, YY] = meshgrid(xmesh, ymesh);
+
+    % Interpolate solution
+    Ynet_cont = griddata(coord_0(:,2), coord_0(:,1), Y_net0, XX, YY);
+    Ycfd_cont = griddata(-coord_0(:,2), coord_0(:,1), Y_cfd0, -XX, YY);
+
+    % Plot contour
+    figure;
+    contourf(XX, YY, Ynet_cont, 50, 'LineStyle','none');
+    hold on;
+    contourf(-XX, YY, Ycfd_cont, 50, 'LineStyle','none');
+    cmap = brewermap(50, '-RdBu');
+    colormap(cmap);
+    fig = gcf; fig.Units = 'centimeters';
+    fig.Position = [15 15 14 20];
+    cb = colorbar;
+
+    xlabel('x (mm)');
+    ylabel('y (mm)');
+    cb.Label.String = varname;
+
+    xlim([-0.1 0.1]);
+    
+    if write_input_diffusion == true
+        figname = append('Comparison_', varname, '_diff.png');
+        exportgraphics(fig, figname, 'Resolution',600);
+    else
+        figname = append('Comparison_', varname, '_no_diff.png');
+        exportgraphics(fig, figname, 'Resolution',600);
+    end
+
+
 end
 
 

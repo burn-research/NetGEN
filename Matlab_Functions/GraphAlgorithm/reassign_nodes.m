@@ -1,4 +1,7 @@
 function [idx_new, k_new] = reassign_nodes(cell_id, G, idx, opt)
+%
+% function [idx_new, k_new] = reassign_nodes(cell_id, G, idx, opt)
+%
 % This function will re-label the computational cells labeled by the
 % clustering vector idx, embedded in the graph G, which contains the
 % information of the connectivity. The cell will be re-assigned based on

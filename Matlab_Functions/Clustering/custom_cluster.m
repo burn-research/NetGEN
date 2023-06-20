@@ -1,25 +1,46 @@
 function [idx, infos] = custom_cluster(k, X, labels, alg, opt)
+%
+% function [idx, infos] = custom_cluster(k, X, labels, alg, opt)
+%
+%
 % This function will cluster the data in k clusters via the selected
 % unsupervised learning algorithm 'alg' with the selected options 'opt'
 % INPUTS:
 %   k = int (number of clusters)
 %   X = data matrix (centered and scaled)
 %   labels = string vector with labels variables
-%   alg = string (algorithm to cluster, available 'k-means', 'lpca', 'gmm'
+%   alg = string (algorithm to cluster, available 'k-means', 'vqpca')
 %   opt = struct (struct variable with the options)
-
-% K-Means options
-% opt.Start: 'uniform', 'sample', 'plus', 'center' (see Matlab doc)
-% opt.MaxIter: int (max number of iterations)
-% K-Means infos
-% infos.C = array (cluster centroids)
-% infos.sumd = float (sum of squared distances)
-
-% LPCA options
-% opt.Precod = bool (preconditioning on mixture fraction)
-% opt.f = array (Mixture fraction field if opt.Precond is active)
-% opt.StopRule = str (Stopping rule for PCA, available are 'eigs', 'tot_var')
-% opt.Inputs = float (Inputs for LPCA, e.g. amount of variance or n eigenvectors, see local_pca_lt.m)
+%
+% OUTPUTS
+%
+%   idx   = cluster labels vector
+%   infos = struct variable with clustering outputs depending on algorithm
+%           used
+%
+%%%%%%%%% Available options for kmeans %%%%%%%%%%
+%
+%   opt.Start   = string {'uniform', 'sample', 'plus', 'cluster'}
+% (initialization method)
+%
+%   opt.MaxIter = int (maximum number of iterations)
+%
+%%%%%%%%% Available options for Local PCA %%%%%%%%
+%   
+%   opt.Precond = bool (if true, data will be preconditioned on mixture
+%   fraction f)
+%
+%   opt.StopRule = string {'var', 'ind_var', 'broken_stick', 'eigs', 'large_eigs'}
+%   (defines stopping rule used for VQPCA)
+%
+%       'var'          = amount of variance retained (float 0 < var < 1)
+%       'ind_var'      = individual variance that must be retained at least for
+%                        all the variables (float 0 < ind_var < 1)
+%       'broken_stick' = see pca_lt.m
+%       'eigs'         = number of eigenvectors to retain
+%       'large_eigs'   = check largest eigenvectors with hard threshold
+%
+%   opt.Inputs   = check vqpca.m
 
 % Check dimensions of X
 [np, nv] = size(X);
@@ -61,9 +82,9 @@ switch alg
         infos.sumd = sumd;
         infos.title = 'Infos from k-means clustering';
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%% LPCA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%% VQPCA %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    case 'lpca'
+    case 'vqpca'
 
         % Check for preconditioning on mixture fraction
         if isfield(opt, 'Precond') == true
@@ -131,12 +152,11 @@ switch alg
                 fprintf('Only eigenvectors choice is available for FPCA. Will be set to 2 by default');
                 opt.Inputs = 2;
             end
-            idx = local_pca_lt_2(X, f, labels, k, opt.Inputs, opt);
+            idx = fpca(X, f, labels, k, opt.Inputs, opt);
 
         else
 
-            [idx, infos.eigvec, infos.eps_rec, infos.nz_X_k, infos.U_scores, infos.rec_data, infos.gamma_pre, infos.C, infos.nz_idx_clust, infos.X_ave_pre, infos.min_var_expl_clust, infos.sq_rec_err, infos.var_exp, infos.X_ave_clust] = ...
-                local_pca_lt(X, labels, k, nv-2, [], 0, 0, opt.StopRule, opt.Inputs);
+            [idx, infos] = vqpca(X, k, opt.StopRule, opt.Inputs, opt);
 
         end
 
