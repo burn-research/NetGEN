@@ -2,13 +2,18 @@
 addpath(genpath('/Users/matteosavarese/Desktop/Dottorato/Github/NetGEN'));
 
 %% Define options
-% % LPCA options
-% opt_global.Alg = 'k-means';
-% opt_global.StopRule = 'eigs';
-% opt_global.Inputs = 2;
-% % opt_global.Precond = false;
-% opt_global.Plot = true;
-% opt_global.Initialization = 2; % 1 = random, 2 = uniform, 3 = FPCA
+
+% Data import options
+opt_global.VolumeFile = 'data_volumes';
+opt_global.DensityFile = 'data_density';
+opt_global.ConnectivityFile = 'Neighbours_cell_flows';
+opt_global.AngleFile = 'data_angle';
+opt_global.TauFile   = 'data_tau';
+opt_global.TVarianceFile = 'data_variance';
+opt_global.VelocityFile = 'data_velocity';
+opt_global.BoundaryCellsFile = 'Boundary_cells';
+opt_global.SolutionFile = 'data_solution';
+opt_global.Basis = 'mol';
 
 % Simulation options
 opt_global.KineticMech = 'gri2.11'; % gri3.0, gri2.11, SanDiego, Polimi, Stagni, Otomo
@@ -18,7 +23,6 @@ opt_global.RunSimulation = true;
 opt_global.PlotContour = false;
 opt_global.PlotProfile = false;
 opt_global.KineticCorrections = true;
-% opt_global.RelativeFluctuations = 0.20;
 opt_global.DataVariance = true;
 
 % Data pre-processing options

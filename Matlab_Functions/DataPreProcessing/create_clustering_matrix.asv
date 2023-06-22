@@ -1,4 +1,4 @@
-function [X, labels, dim, coord] = import_data_cfd(opt)
+function [X, labels, dim, coord] = create_clustering_matrix(data_all, opt)
 
 % This function will import the CFD data from the required files and put
 % all the matrices and vectors in the struct type data_output
@@ -12,15 +12,10 @@ function [X, labels, dim, coord] = import_data_cfd(opt)
 %   dim    = int. representing the geometrical dimension of the case
 %   coord  = mxdim matrix with the coordinates of the mesh
 
-% Check if 'data_solution' file is in the current folder
-if isfile('data_solution') == false
-    error('Data solution file not found, please make sure you name your solution file like this');
-end
-
 % Import the whole dataset
-data    =    importdata('data_solution');
-labels  =    data.textdata;
-X_data  =    data.data;
+data    =    data_all.Solution;
+labels  =    data_all.Labels;
+X_data  =    data;
 
 % Recognize if case is two or three dimensional
 % Recognize if the case is 2D or 3D
@@ -40,9 +35,13 @@ coord = X_data(:,2:start-1);
 % Select which species you want to keep for the clustering, all, major or
 % hydrogen
 select_data = opt;
+
+% Check for options
 switch select_data
+
     case 'all'
         X = X_data(:,start:end);
+
     case 'major'
         major_sp = {'o2', 'oh', 'h2o', 'ch4', 'h2'};
         id_keep = [];
@@ -92,54 +91,57 @@ switch select_data
             end
         end
 
-        % Based only on T, f, tau, Tvar which should be contained in new
-        % solution files from fluent
-        if isfile('case_info.mat') == true
-            load case_info.mat;
-        else
-            error('case_info.mat not found. Please refer to network_eval.m');
+        sp_labels = data_all.SpeciesLabels;
+        sp_labels_c = rewrite_fluent_labels(sp_labels);     % Rewrite species labels
+        comp = X_data(:,start+1:end);                       % Mole fractions
+
+        if isfield(opt, 'Basis') == false
+            opt.Basis = input('Mol or mass basis not specified, please specify: ', 's');
         end
 
-        sp_labels = labels(start+1:end);
-        sp_labels_c = rewrite_fluent_labels(sp_labels);   % Species labels
-        comp = X_data(:,start+1:end);                   % Mole fractions
-        Y = mole_to_mass(comp, sp_labels_c);
+        % Transform to mass if necessary
+        if strcmp(opt.Basis, 'mol') || strcmp(opt.Basis, 'mole')
+            Y = mole_to_mass(comp, sp_labels_c);
+        end
 
         % Define the progress variable
-        f = sum(Y,2);
+        f = Y(:,1) + Y(:,2);            % Here PV is defined as H2O + CO2
         feq = max(f);
         fnorm = f/feq;
 
-        f = mixture_fraction(Y, sp_labels, fuel);
+        X = [X fnorm];
 
-        if isfield(opt, 'Mixing') == true
-            data_mixing = importdata('data_mixing');
-            mix_time = data_mixing.data(:,4:end);
+        % Check for other fields in data_all
+        % Check for tau
+        if isfield(data_all, 'Tau')
+            tau = data_all.Tau;
+            tau(tau>1) = 1;         % Clip to max
+            tau = -log10(tau);      % Apply nonlinear transformation
+
+            % Update X
+            X = [X fnorm tau];
+            fprintf('Tau has been added to X \n');
         end
 
-        % Check for the existence of residence time distribution data
-        if isfile('data_tau') == true && isfile('data_velocity') == true && isfile('data_angle') == true && isfile('data_Trms') == true
-            data_tau = importdata('data_tau');
-            tau = data_tau.data(:,start);
-            tau(tau>1) = 1;
+        % Check for velocity
+        if isfield(data_all, 'Velocity')
+            vel = data_all.Velocity;
+            X = [X vel];
+            fprintf('Velocity has been added to X \n');
+        end
 
-            data_var = importdata('data_Trms');
-            Tvar = data_var.data(:,4);
+        % Check for temperature variance
+        if isfield(data_all, 'Variance')
+            Tvar = data_all.Variance;
+            X = [X Tvar];
+            fprintf('Temperature variance has been added to X \n');
+        end
 
-            data_velocity = importdata('data_velocity');
-            vel = data_velocity.data(:,start);
-
-            data_angle = importdata('data_angle');
-            angle = data_angle.data(:,start);
-            X = [-log10(tau) X_data(:,start)/10 f vel angle/100];
-
-            if isfield(opt, 'Mixing') == true
-                X = [X mix_time];
-            end
-
-        else
-            warning('data_tau not found. Rename the file or insert residence time distribution data');
-            X = [X_data(:,start) f coord(:,2)];
+        % Check for velocity angle
+        if isfield(data_all, 'Angle')
+            angle = data_all.Angle;
+            X = [X angle];
+            fprintf('Angle has been added to X \n');
         end
 
     case 'velocity_only'

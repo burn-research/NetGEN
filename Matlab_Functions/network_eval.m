@@ -1,5 +1,8 @@
 function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
-%% This function will perform clustering with a user-selected algorithm and
+%
+% [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
+%
+% This function will perform clustering with a user-selected algorithm and
 % number of clusters. The mass flowrates and the volumes of the reactors are computed 
 %
 %   *INPUT*:
@@ -97,26 +100,13 @@ if isfield(opt_global, 'DataPath') == false
     error('Path to data not available in the options. Impossible to retrieve data');
 end
 
-% Import other data
-data_volumes  = importdata(append(opt_global.DataPath, 'data_volumes'));
-data_density  = importdata(append(opt_global.DataPath, 'data_density'))  ;
-data_mass     = importdata(append(opt_global.DataPath, 'Neighbours_cell_flows'));
-data_velocity = importdata(append(opt_global.DataPath, 'data_velocity'));
-data_solution = importdata(append(opt_global.DataPath, 'data_solution'));
+ndim = input('Number of dimensions = (2 or 3) ');
 
-if isfile(append(opt_global.DataPath, 'data_tau')) == true
-    disp('Importing also residence time data');
-    data_tau = importdata(append(opt_global.DataPath, 'data_tau'));
-end
-
-% Check for diffusion data
-if isfile(append(opt_global.DataPath, 'data_viscosity'))
-    data_viscosity = importdata(append(opt_global.DataPath, 'data_viscosity'));
-end
+data_all = import_data_all(opt_global.DataPath, ndim, opt_global);
 
 % Extract the data
 if isfield(opt_global, 'OptData') == false
-    opt_global.OptData = input('Select set of data to import, available options are: all, major, reduced_set: ', 's');
+    opt_global.OptData = input('Select set of data to use for clustering: all, major, reduced_set, custom: ', 's');
 end
 
 % Data matrix (refer to import_data_cfd.m)
@@ -124,33 +114,28 @@ end
 fprintf('Data matrix X is of size %d rows and %d columns \n', size(X, 1), size(X, 2));
 start = dim+2; % Columns to start importing the data
             
-% Volume data
-data_volumes = data_volumes.data;
-vol_data = data_volumes(:, start);
-
-% Density data
-data_density = data_density.data;
-density_data = data_density(:,start);
-
-% Velocity data
-vel_data = data_velocity.data;
-vel_data = vel_data(:,start);
-
-% Viscosity data
-if isfile('data_viscosity')
-    viscosity = data_viscosity.data(:,start);
-end
 
 % Get mixture fraction
 if isfield(opt_global, 'Precond') == true
+
+    % Fuel composition is needed
     load(append(opt_global.DataPath, 'case_info.mat'));
-    data_comp = importdata('data_solution');
-    comp = data_comp.data;
+
+    comp = data_all.Solution;
     comp = comp(:,start+1:end);
-    sp_labels = labels(start+1:end);
+    sp_labels = data_all.SpeciesLabels;
  
     sp_labels_c = rewrite_fluent_labels(sp_labels);
-    Y = mole_to_mass(comp, sp_labels_c);
+    if isfield(opt_global, 'Basis') == false
+        basis = input('mol or mass basis not specified, please specify: ', 's');
+    else
+        basis = opt_global.Basis;
+    end
+
+    if strcmp(basis, 'mol') || strcmp(basis, 'mole') || strcmp(basis, 'molar')
+        Y = mole_to_mass(comp, sp_labels_c);
+    end
+
     f = mixture_fraction(Y, sp_labels, fuel);
     opt_global.f = f;
 end
@@ -236,7 +221,7 @@ disp('Clustering completed, computing volumes...');
 %% Connectivity study
 
 % Remove the boundary cells from the connectivity matrix (refers to remove_boundary.m)
-data_mass = data_mass.data;
+data_mass = data_all.Connectivity.data;
 data_mass = data_mass(:,4:end);
 mass_data = remove_boundary(data_mass);
 
@@ -273,7 +258,7 @@ disp(mess);
 cell_clust = clustering(nodes, idx_new);
 
 % Check connectivity
-[all_connected, n_sub_graph] = check_connectivity(G, cell_clust);
+[~, ~] = check_connectivity(G, cell_clust);
 
 disp('Connectivity study completed. Re-assigning nodes...');
 
@@ -284,7 +269,7 @@ graph_time_start = datetime;
 opt_r.Criterion = 'Euclidean';
 opt_r.X = X_scaled;
 opt_r.ReassignCriterion = 'volume';
-opt_r.CellsVolume = vol_data;
+opt_r.CellsVolume = data_all.Volumes;
 opt_r.VolumeThreshold = 0.01;
 
 idx_new = reassign_nodes(nodes, G, idx, opt_r);
@@ -295,18 +280,26 @@ if k_new ~= k
     mess = append(num2str(clust_removed), ' has been removed');
     k = k_new;
 end
+
 % Get infos
 graph_time_end = datetime;
 infos.GraphTime = graph_time_end - graph_time_start;
 
 %% Calculate volumes and mass of clusters
+
+% Volumes data
+vol_data = data_all.Volumes;
+
+% Density data
+density_data = data_all.Density;
+
 % Initialize volumes and mass of reactors
 net_volumes = zeros(k,1);
 mass = zeros(k,1);
 
 % If 2d-axisimmetric volumes must be corrected
 if size(coord,2) == 2
-     vol_data = vol_data; % * 2 * pi;
+     vol_data = vol_data * 2 * pi;
 end
 
 % Partititon the data and compute volumes and mass
@@ -320,19 +313,26 @@ for j = 1 : k
 end
 
 %% Remove the clusters below 0.01% of the total volume
+
+% Those can be defined in opt_global
 opt_global.RemoveSmall = true;
 opt_global.RemoveThreshold = 1e-6;
-if isfield(opt_global, 'RemoveSmall') == true
+
+if isfield(opt_global, 'RemoveSmall')
     fprintf('Removing small clusters... \n');
 
     if isfield(opt_global, 'RemoveThreshold') == true
         f_vol = opt_global.RemoveThreshold;
     else
-        f_vol = input('Enter the fraction threshold for removing small clusters (default 1e-6): ');
+        f_vol = 1e-6;
+        fprintf(['Relative volume threshold for clusters removal not specified \n' ...
+            ' default value of 1e-6 will be used \n']);
     end
 
     vol_thresh = sum(net_volumes) * f_vol;
+
     fprintf('\n Removing clusters smaller than %d cm3... \n', vol_thresh);
+
     [idx_new, new_volumes, n_small] = remove_small_clusters(net_volumes, vol_thresh, idx, G);
     infos.NSmall = n_small;
     
@@ -348,7 +348,7 @@ if isfield(opt_global, 'RemoveSmall') == true
     
     % Check the connectivity again
     cell_clust = clustering(nodes, idx);
-    [all_connected, n_sub_graph] = check_connectivity(G, cell_clust);
+    [~, ~] = check_connectivity(G, cell_clust);
 end
 
 %% Compute mass flowrates across reactors
@@ -397,10 +397,10 @@ if plt == true
     output = plot_clustering(coord, idx, dim);
 end
 
-%% Correcting mass flowrates for mass balance check
+%% Get Reactors external surface
 
 % Calculate the mass flowrate at the boundaries (inlets and outlets)
-data_boundaries = importdata('Boundary_cells');
+data_boundaries = data_all.Boundaries;
 
 % Calculate the inlets and mass flowrates at the boundaries
 [inlets, bc_mass_flowrates] = calc_inlets(idx, inlet_streams, data_boundaries);
@@ -409,6 +409,8 @@ data_boundaries = importdata('Boundary_cells');
 if opt_global.SolveEnergy == true
     Ar = get_face_area(data_boundaries, idx);
 end
+
+%% Check mass balance of the network
         
 % Evaluate both global and local mass unbalance
 disp('Checking mass balance...');
@@ -422,23 +424,10 @@ else
     correction = opt_global.MassAdjust;
 end
 
+% Correct mass flowrates
 switch correction
     case true
-        alpha = mass_split(mass_flowrates, bc_mass_flowrates);
-        for i = 1 : k
-            for j = 1 : k
-                if alpha(i,j) < 1e-3
-                    alpha(i,j) = 0;
-                end
-            end
-        end
-        
-
-        % Solve the system to get the corrected mass flowrates
-        A  = eye(k) - alpha';
-        b  = bc_mass_flowrates(:,1);
-        mf = linsolve(A,b);
-        mass_flowrates = alpha.*mf;     
+        mass_flowrates = adjust_mass_flowrates(mass_flowrates, bc_mass_flowrates);
 end
 
 % Check if there are clusters with exchanging no mass
@@ -447,16 +436,19 @@ ind = [1:1:k]';
 
 for i = 1 : k
         if isempty(find(mass_flowrates(i,:) ~= 0)) && isempty(find(mass_flowrates(:,i) ~= 0))
+
             % Remove row and column
             removerows(ind, 'ind', i);
             k_new = k - 1;
             fprintf('No mass exchange has been detected in cluster %d, it will be deleted', i);
+
         end
 end
 
 mass_flowrates = mass_flowrates(ind, ind);
 k = k_new;
-            
+
+% Check global and local mass imbalance of the network
 [global_imbalance, local_imbalance] = net_balance(mass_flowrates, bc_mass_flowrates);
 fprintf('Global relative imbalance in the network = %E \n', global_imbalance);
 fprintf('Relative mass imbalance in each cluster: \n');
@@ -500,8 +492,8 @@ infos.NetSmokeDir = netsmoke_dir;
 mkdir(netsmoke_dir);
 cd(netsmoke_dir);
 
-val = data_solution.data;
-T = val(:,start);
+val = data_all.Solution;
+T = val(:,1);
 
 % Data necessary for NetSmoke
 % Calculate the total outflow
@@ -548,34 +540,45 @@ end
 %% Check for diffusive fluxes between reactors
 write_input_diffusion = false;
 if isfield(opt_global, 'Diffusion')
+
     % Calculate distance
     DD = calc_cluster_distance(coord, idx);
+
     % Subgraphs
     [~, ~, ~, ~, ~, subgraphs] = ...
         connectivity_study(G, val(:,1), idx, false, coord);
+
     % Calculate contact surface
     data_neighbors = importdata('../../Neighbours_cell_flows');
     val_neighbors  = data_neighbors.data;
     Ab = calc_boundary_surface(G, subgraphs, idx, val(:,1), val_neighbors);
     Ab = Ab * 2 * pi;
+
     % Calculate diffusion fluxes
     Y = data_solution.data(:, start+1:end);
     Dm = estimate_diffusion_fluxes(Y, DD, Ab, viscosity, idx);
     disp('Diffusive fluxes successfully estimated');
+
     % Flag to write input for diffusion
     write_input_diffusion = true;
 end
 
 %% Create the reactors objects
 switch en_eq
-    case true
 
+    % Non-isothermal reactors
+    case true
+        
+        % For each reactor we need to write its characteristics
         for i = 1 : k
+
             R.Type = 'cstr';            % Reactor type
             R.id = i-1;                 % Reactor number identifier (from 0)
             
             % If it is a CSTR then we need volume and mass flowrate
             if strcmp(R.Type, 'cstr') == true
+
+                % Reactor volume
                 R.V = net_volumes(i);
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);
                 R.P = case_info.P;
@@ -598,9 +601,12 @@ switch en_eq
 
                 % Check if option to initialize the solution from CFD is
                 % active
+
                 if isfield(opt_global, 'InitializeComposition') == true
+
                     % Extract species
                     val = data_solution.data;
+
                     % Select major species
                     mj = {'CH4', 'O2', 'H2O', 'H2', 'OH'};
                     id = zeros(length(mj),1);
@@ -683,8 +689,7 @@ switch en_eq
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);
                 R.P = case_info.P;
 
-%                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});
-                R.T = max(T_clust{i});
+                R.T = sum(weight_T_clust{i})/sum(weight_clust{i});
 
                 R.Y = {'O2:0.21', 'N2:0.79'};   % Mole fractions                
                 R.isothermal = true;
@@ -711,7 +716,7 @@ switch en_eq
                     if opt_global.DataVariance == false
                         R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
                     else
-                        R.Tvar = max(Tvar_clust{i});
+                        R.Tvar = mean(Tvar_clust{i});
                     end
                 end
 
@@ -890,181 +895,6 @@ end
 
 fprintf('Total execution time: ');
 disp(infos.TotalTime);
-
-%% Post-processing
-if isfield(opt_global, 'PostProcessing') == true
-    pp = opt_global.PostProcessing;
-else
-    pp = input('Post processing the results? Enter true or false: ');
-end
-
-pp = true;
-if pp == true
-    opt_global.ExportSpecies = {'NO', 'NO2', 'N2O', 'NH3'};
-    output_species = post_process_results('Output', 'input.dic', opt_global);
-    fprintf('\n Output species: \n');
-    for i = 1 : length(output_species.Species)
-        fprintf('%s = %E \n', output_species.SpeciesName{i}, output_species.Species(i));
-    end
-end
-
-if opt_global.PlotContour == true && opt_global.RunSimulation == true
-    [Y_net, Y_net_contour] = compare_contour(data_solution.data(:,4), 'T[K]', 'Output', idx, coord);
-    [infos.Y_net_NO] = plot_network_contour(idx, coord, 'NO', 'Output/');
-    
-    % Plot NO contour
-    figure;
-    scatter(coord(:,2), coord(:,1), 20, infos.Y_net_NO, 'filled');
-    hold on;
-    scatter(-coord(:,2), coord(:,1), 20, infos.Y_net_NO, 'filled');
-    colormap('hot(20)');
-    cb = colorbar;
-    cb.Label.String = 'NO [mol.f]';
-    fig = gcf; fig.Units = 'centimeters';
-    fig.Position = [15 15 18 14];
-end
-
-if isfield(opt_global, 'PlotMixtureFraction') == true
-    plt_mf = true;
-else
-    plt_mf = input('Plot mixture fraction vs T? Enter true or false: ');
-end
-
-if plt_mf == true
-
-    figure;
-    scatter(opt_global.f, T, 10, idx, 'filled');
-    cb = colorbar;
-    cb.Label.String = 'Cluster index';
-    cmap = append('parula(', num2str(k), ')');
-    colormap(cmap);
-    xlabel('F [-]');
-    ylabel('T [K]');
-end
-
-opt_global.PhysicalIndex = true;
-if isfield(opt_global, 'PhysicalIndex') == true
-
-    % Plot standard deviation, mean and range
-    Tmean = zeros(k,1);
-    Tstd  = zeros(k,1);
-    Trange = zeros(k,1);
-    phc = zeros(k,1);
-    phc_dev = zeros(k,1);
-    for i = 1 : k
-        Tmean(i)  = mean(T_clust{i});
-        Tstd(i)   = std(T_clust{i});
-        Trange(i) = max(T_clust{i}) - min(T_clust{i});
-        phc(i) = Trange(i)/Tmean(i);
-    end
-
-    figure;
-    subplot(2,1,1);
-    errorbar([1:1:k]', Tmean, Tstd, 'k', 'LineStyle','none', 'Marker','o', 'MarkerFaceColor','k');
-    ax = gca; ax.TickLabelInterpreter = 'latex';
-    xlabel('Cluster index');
-    ylabel('T [K]');
-
-    % Calculate physical homogeneity coefficient
-    subplot(2,1,2);
-    plot([1:1:k]', phc, 'LineStyle','none', 'LineWidth',2, 'Marker','o', 'MarkerFaceColor','k', 'Color','k');
-    xlabel('Cluster index');
-    ylabel('PHC');
-    ax = gca; ax.TickLabelInterpreter = 'latex';
-end
-
-if isfield(opt_global, 'PlotProfile') == true
-    if opt_global.PlotProfile == true
-        disp('Plotting network profile...');
-        [y_axis, x_net, y_cfd, x_cfd] = plot_network_profile(idx, coord, T, 'Output/', plt);
-    end
-end
-
-% Plot NO contour
-plotNO = false;
-if plotNO == true
-    Y_net = plot_network_contour(idx, coord, 'NO', 'Output/');
-
-    % Restrict domain to y > 0
-    id0 = find(coord(:,1) > 0);
-    coord_0 = coord(id0,:);
-    Y_net0 = Y_net(id0);
-
-    % Meshgrid
-    xmesh = linspace(0, max(coord(:,2)), 500);
-    ymesh = linspace(0, max(coord(:,1)), 500);
-    [XX, YY] = meshgrid(xmesh, ymesh);
-
-    % Interpolate solution
-    Ynet_cont = griddata(coord_0(:,2), coord_0(:,1), Y_net0, XX, YY);
-
-    % Plot contour
-    figure;
-    contourf(XX, YY, Ynet_cont, 50, 'LineStyle','none');
-    hold on;
-    contourf(-XX, YY, Ynet_cont, 50, 'LineStyle','none');
-    cmap = brewermap(25, '-RdBu');
-    colormap(cmap);
-    fig = gcf; fig.Units = 'centimeters';
-    fig.Position = [15 15 10 18];
-    cb = colorbar;
-end
-
-% Compare contours
-compare_contours = true;
-if compare_contours == true
-    
-    % Select index of the variable to plot
-    id = 11;
-    varname = 'H';
-    Y_cfd = data_solution.data(:,id);
-    [Y_net, Y_net_contour] = compare_contour(Y_cfd, varname, 'Output/', idx, coord);
-
-    close;
-
-    % Plot contours
-    % Restrict domain to y > 0
-    id0 = find(coord(:,1) > 0);
-    coord_0 = coord(id0,:);
-    Y_net0 = Y_net_contour(id0);
-    Y_cfd0 = Y_cfd(id0);
-
-    % Meshgrid
-    xmesh = linspace(0, max(coord(:,2)), 500);
-    ymesh = linspace(0, max(coord(:,1)), 500);
-    [XX, YY] = meshgrid(xmesh, ymesh);
-
-    % Interpolate solution
-    Ynet_cont = griddata(coord_0(:,2), coord_0(:,1), Y_net0, XX, YY);
-    Ycfd_cont = griddata(-coord_0(:,2), coord_0(:,1), Y_cfd0, -XX, YY);
-
-    % Plot contour
-    figure;
-    contourf(XX, YY, Ynet_cont, 50, 'LineStyle','none');
-    hold on;
-    contourf(-XX, YY, Ycfd_cont, 50, 'LineStyle','none');
-    cmap = brewermap(50, '-RdBu');
-    colormap(cmap);
-    fig = gcf; fig.Units = 'centimeters';
-    fig.Position = [15 15 14 20];
-    cb = colorbar;
-
-    xlabel('x (mm)');
-    ylabel('y (mm)');
-    cb.Label.String = varname;
-
-    xlim([-0.1 0.1]);
-    
-    if write_input_diffusion == true
-        figname = append('Comparison_', varname, '_diff.png');
-        exportgraphics(fig, figname, 'Resolution',600);
-    else
-        figname = append('Comparison_', varname, '_no_diff.png');
-        exportgraphics(fig, figname, 'Resolution',600);
-    end
-
-
-end
 
 
 save info_simulation infos;
