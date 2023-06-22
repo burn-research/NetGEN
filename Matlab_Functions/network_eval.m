@@ -1,4 +1,4 @@
-function [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
+function [mass_corrected, bc_mass_flowrates, R_list, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
 %
 % [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
 %
@@ -385,18 +385,6 @@ for j = 1 : size(mass_data, 1)
     end
 end
 
-%% Display results
-% Plot the results
-if isfield(opt_global, 'Plot')
-    plt = opt_global.Plot;
-else
-    plt = input('Plot the clustering results? Enter true or false: ');
-end
-
-if plt == true
-    output = plot_clustering(coord, idx, dim);
-end
-
 %% Get Reactors external surface
 
 % Calculate the mass flowrate at the boundaries (inlets and outlets)
@@ -531,8 +519,7 @@ x_clust = clustering(coord(:,1),idx);
 
 % Get variance of temperature in the clusters
 if opt_global.DataVariance == true
-    data_variance = importdata('../../data_Trms');
-    Tvar = data_variance.data(:,start);
+    Tvar = data_all.Variance;
     Tvar_clust = clustering(Tvar, idx);
     fprintf('Temperature variance data are present and they are being processed... \n');
 end
@@ -549,8 +536,7 @@ if isfield(opt_global, 'Diffusion')
         connectivity_study(G, val(:,1), idx, false, coord);
 
     % Calculate contact surface
-    data_neighbors = importdata('../../Neighbours_cell_flows');
-    val_neighbors  = data_neighbors.data;
+    val_neighbors = data_all.Connectivity;
     Ab = calc_boundary_surface(G, subgraphs, idx, val(:,1), val_neighbors);
     Ab = Ab * 2 * pi;
 
