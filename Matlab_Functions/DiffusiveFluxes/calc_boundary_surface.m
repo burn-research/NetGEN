@@ -4,6 +4,14 @@ function [Ab] = calc_boundary_surface(G, subgraphs, idx, nodes, neighbor_data)
 % clustering labelling vector idx, the nodes vector nodes and the vector of
 % areas
 
+neighbor_data = neighbor_data.data;
+
+% Flag to check shape of neighbor_data
+if size(neighbor_data,2) ~= 7
+    disp(size(neighbor_data,2));
+    error('Please check the connectivity input file');
+end
+
 id1 = neighbor_data(:,4);
 id2 = neighbor_data(:,5);
 areas = neighbor_data(:,7);

@@ -61,10 +61,11 @@ else
 end
 
 % Create struct array with all the data
-data_all.Volumes  = data_volumes.data(:,st);
-data_all.Density  = data_density.data(:,st);
-data_all.Velocity = data_velocity.data(:,st);
-data_all.Solution = data_solution.data(:,st:end);
+data_all.Volumes  = data_volumes.data(:,st);            % Volumes of cells
+data_all.Density  = data_density.data(:,st);            % Density of cells
+data_all.Velocity = data_velocity.data(:,st);           % Velocity magnitude
+data_all.Solution = data_solution.data(:,st:end);       % State space data (T mass fractions)
+data_all.Coordinates = data_solution.data(:,2:st-1);    % Geometrical coordinates of centroids
 
 % Those should not be touched
 data_all.Connectivity = data_mass;

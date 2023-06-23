@@ -207,12 +207,7 @@ end
 % Perform clustering
 disp('Performing unsupervised clustering...');
 clust_time_start = datetime;
-
 idx = custom_cluster(k, X, labels, alg, opt_global);
-scatter(coord(:,2), coord(:,1), 5, idx, 'filled');
-pause;
-close all;
-
 clust_time_end   = datetime;
 infos.ClusteringTime = clust_time_end - clust_time_start;
 
@@ -265,14 +260,9 @@ disp('Connectivity study completed. Re-assigning nodes...');
 % Re-assign nodes for connectivity
 graph_time_start = datetime;
 
-% Re-assign options
-opt_r.Criterion = 'Euclidean';
-opt_r.X = X_scaled;
-opt_r.ReassignCriterion = 'volume';
-opt_r.CellsVolume = data_all.Volumes;
-opt_r.VolumeThreshold = 0.01;
-
-idx_new = reassign_nodes(nodes, G, idx, opt_r);
+opt_global.X = X_scaled;
+opt_global.CellsVolume = data_all.Volumes;
+idx_new = reassign_nodes(nodes, G, idx, opt_global);
 idx = idx_new;
 k_new = max(idx_new);
 if k_new ~= k
@@ -454,9 +444,6 @@ cd(dir_title);
 infos.MainDir = dir_title;
 
 save clustering_results
-if plt == true
-    figure(1); hold on; saveas(gcf, 'Cluster_output.png');
-end
 
 % Save the results
 save clustering_results
@@ -528,22 +515,24 @@ end
 write_input_diffusion = false;
 if isfield(opt_global, 'Diffusion')
 
-    % Calculate distance
-    DD = calc_cluster_distance(coord, idx);
+%     % Calculate distance
+%     DD = calc_cluster_distance(coord, idx);
+% 
+%     % Subgraphs
+%     [~, ~, ~, ~, ~, subgraphs] = ...
+%         connectivity_study(G, val(:,1), idx, false, coord);
+% 
+%     % Calculate contact surface
+%     val_neighbors = data_all.Connectivity;
+%     Ab = calc_boundary_surface(G, subgraphs, idx, val(:,1), val_neighbors);
+%     Ab = Ab * 2 * pi;
+% 
+%     % Calculate diffusion fluxes
+%     Y = data_solution.data(:, start+1:end);
+%     Dm = estimate_diffusion_fluxes(Y, DD, Ab, viscosity, idx);
+%     disp('Diffusive fluxes successfully estimated');
 
-    % Subgraphs
-    [~, ~, ~, ~, ~, subgraphs] = ...
-        connectivity_study(G, val(:,1), idx, false, coord);
-
-    % Calculate contact surface
-    val_neighbors = data_all.Connectivity;
-    Ab = calc_boundary_surface(G, subgraphs, idx, val(:,1), val_neighbors);
-    Ab = Ab * 2 * pi;
-
-    % Calculate diffusion fluxes
-    Y = data_solution.data(:, start+1:end);
-    Dm = estimate_diffusion_fluxes(Y, DD, Ab, viscosity, idx);
-    disp('Diffusive fluxes successfully estimated');
+    [Dm, Ab, DD] = diffusion_fluxes(data_all, G, idx, opt_global);
 
     % Flag to write input for diffusion
     write_input_diffusion = true;
@@ -708,7 +697,7 @@ switch en_eq
 
                 % Write input of the single reactor
                 if write_input_diffusion == true
-                    R.TurbDiff = mean(viscosity(idx==i));
+                    R.TurbDiff = mean(data_all.Viscosity(idx==i));
                 end
                 
             % If it is a PFR we need the mass flowrate, residence time and diameter
