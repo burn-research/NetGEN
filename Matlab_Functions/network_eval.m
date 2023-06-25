@@ -1,4 +1,4 @@
-function [mass_corrected, bc_mass_flowrates, R_list, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
+function [mass_corrected, bc_mass_flowrates, R_list, idx, X, infos] = network_eval(k, ndim, inlet_streams, case_info, opt_global)
 %
 % [mass_corrected, net_volumes, bc_mass_flowrates, idx, X, infos] = network_eval(k, inlet_streams, case_info, opt_global)
 %
@@ -100,8 +100,6 @@ if isfield(opt_global, 'DataPath') == false
     error('Path to data not available in the options. Impossible to retrieve data');
 end
 
-ndim = input('Number of dimensions = (2 or 3) ');
-
 data_all = import_data_all(opt_global.DataPath, ndim, opt_global);
 
 % Extract the data
@@ -110,7 +108,8 @@ if isfield(opt_global, 'OptData') == false
 end
 
 % Data matrix (refer to import_data_cfd.m)
-[X, labels, dim, coord] = import_data_cfd(opt_global.OptData);
+% [X, labels, dim, coord] = import_data_cfd(opt_global.OptData);
+[X, labels, dim, coord] = create_clustering_matrix(data_all, opt_global);
 fprintf('Data matrix X is of size %d rows and %d columns \n', size(X, 1), size(X, 2));
 start = dim+2; % Columns to start importing the data
             

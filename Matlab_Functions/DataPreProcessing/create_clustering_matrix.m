@@ -34,11 +34,10 @@ coord = X_data(:,2:start-1);
 
 % Select which species you want to keep for the clustering, all, major or
 % hydrogen
-select_data = opt;
+select_data = opt.OptData;
 
 % Check for options
 switch select_data
-
     case 'all'
         X = X_data(:,start:end);
 
@@ -93,7 +92,7 @@ switch select_data
 
         sp_labels = data_all.SpeciesLabels;
         sp_labels_c = rewrite_fluent_labels(sp_labels);     % Rewrite species labels
-        comp = X_data(:,start+1:end);                       % Mole fractions
+        comp = X_data(:,2:end);                             % Mole or mass fractions
 
         if isfield(opt, 'Basis') == false
             opt.Basis = input('Mol or mass basis not specified, please specify: ', 's');
@@ -109,7 +108,7 @@ switch select_data
         feq = max(f);
         fnorm = f/feq;
 
-        X = [X fnorm];
+        X = [X_data fnorm];
 
         % Check for other fields in data_all
         % Check for tau
