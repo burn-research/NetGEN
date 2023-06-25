@@ -288,7 +288,7 @@ mass = zeros(k,1);
 
 % If 2d-axisimmetric volumes must be corrected
 if size(coord,2) == 2
-     vol_data = vol_data * 2 * pi;
+     vol_data = 100 * vol_data * 2 * pi;
 end
 
 % Partititon the data and compute volumes and mass
@@ -568,7 +568,7 @@ switch en_eq
                         if opt_global.DataVariance == false
                             R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
                         else
-                            R.Tvar = mean(Tvar_clust{i});
+                            R.Tvar = max(Tvar_clust{i});
                         end
                     end
                 end
