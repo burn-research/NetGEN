@@ -288,7 +288,7 @@ mass = zeros(k,1);
 
 % If 2d-axisimmetric volumes must be corrected
 if size(coord,2) == 2
-     vol_data = 100 * vol_data * 2 * pi;
+     vol_data =  vol_data * 2 * pi;
 end
 
 % Partititon the data and compute volumes and mass

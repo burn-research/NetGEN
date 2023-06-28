@@ -97,7 +97,7 @@ end
 
 % Temperature variance data
 if isfield(opt, 'TVarianceFile')
-    data_variance = importdata(append(path_to_data, opt.AngleFile));
+    data_variance = importdata(append(path_to_data, opt.TVarianceFile));
     data_all.Variance = data_variance.data(:,st);
 end
 
