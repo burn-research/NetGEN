@@ -288,7 +288,7 @@ mass = zeros(k,1);
 
 % If 2d-axisimmetric volumes must be corrected
 if size(coord,2) == 2
-     vol_data =  vol_data;
+     vol_data =  vol_data * 2 * pi;
 end
 
 % Partititon the data and compute volumes and mass
@@ -536,10 +536,10 @@ switch en_eq
             if strcmp(R.Type, 'cstr') == true
 
                 % Reactor volume
-                R.V = net_volumes(i);                                   % cm3
-                R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i); % kg/s
-                R.P = case_info.P;                                      % Pa
-                R.T = sum(weight_T_clust{i})/sum(weight_clust{i});      % K
+                R.V = net_volumes(i);
+                R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);
+                R.P = case_info.P;
+                R.T = sum(weight_T_clust{i})/sum(weight_clust{i});
 
                 if max(x_clust{i}) < 0.0
                     R.isothermal = true;
@@ -547,7 +547,6 @@ switch en_eq
                     if R.T > 1000.0 && opt_global.KineticCorrections == true
                         R.KineticCorrections = true;
                         R.Tmean = R.T;
-
                         % Check if data of temperature variance is present
                         if opt_global.DataVariance == false
                             R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
@@ -646,7 +645,7 @@ switch en_eq
                 % Set main attributes
                 R.V = net_volumes(i);                                       % Volume cm3
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);     % Mass flowrate kg/s
-                R.P = case_info.P;                                          % Pressure Pa                 
+                R.P = case_info.P;                                          % Pressure Pa
                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});          % Temperature K
                 R.Y = {'O2:0.21', 'N2:0.79'};                               % Initialize mol fractions
                 R.isothermal = true;                                        % Energy
@@ -658,7 +657,7 @@ switch en_eq
                 % Check if the reactor is very small, in that case change
                 % the ODE settings
                 else
-                    if R.V < 100                
+                    if R.V < 100 %cm3
                         R.odesettings = true;
                         R.reltol = 1e-12;
                         R.abstol = 1e-12;
@@ -667,11 +666,8 @@ switch en_eq
 
                 % Check for kinetic corrections
                 if R.T > 1000 && opt_global.KineticCorrections == true
-
-                    % Kinetic corrections
                     R.KineticCorrections = true;
-                    R.Tmean = max(T_clust{i});
-
+                    R.Tmean = R.T;
                     % Check if data of temperature variance is present
                     if opt_global.DataVariance == false
                         R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
@@ -855,6 +851,7 @@ end
 
 fprintf('Total execution time: ');
 disp(infos.TotalTime);
+
 
 save info_simulation infos;
 

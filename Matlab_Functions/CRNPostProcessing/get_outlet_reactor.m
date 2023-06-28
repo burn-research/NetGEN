@@ -18,7 +18,6 @@ for i = 1 : length(lines)
         while stop == false
             ll = split(lines(i + counter));
             a = str2num(ll(1));
-            disp(a);
             if isnumeric(a) == true
                 out(counter+1) = a;
             else

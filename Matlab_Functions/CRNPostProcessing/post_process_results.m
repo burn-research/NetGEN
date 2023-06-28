@@ -24,9 +24,9 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%% SPECIES EXTRACTION %%%%%%%%%%%%%%%%%%%%%%%%%%%
 output.Species = zeros(length(sp),1);
-
 output_file = append(path_to_output, '/Reactor.', num2str(r_out), '/Output.out');
-disp(output_file);
+
+% Import data from output file
 data_output = importdata(output_file);
 labels = data_output.textdata;
 val = data_output.data;
@@ -48,7 +48,6 @@ for i = 1 : length(labels)
     % Check if strings compare
     for j = 1 : length(sp_strings)
         if strcmpi(sp_strings{j}, ss)
-            disp('Species found');
             id_sp(count) = i;
             count = count + 1;
         end
