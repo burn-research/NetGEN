@@ -24,12 +24,17 @@ while end_cycle == false
         val = data_reactor.data;
         
         % Find variable of interest
-        for j = 1 : length(labels)
-            ss = extractBefore(labels{j}, '_x');
-            if strcmp(ss, var_name) == true
-                id = j;
+        if var_name == 'T'
+            id = 5;         % For NetSMOKE always here
+        else
+            for j = 1 : length(labels)
+                ss = extractBefore(labels{j}, '_x');
+                if strcmp(ss, var_name) == true
+                    id = j;
+                end
             end
         end
+
         Y_net(ii+1) = val(id);
     else
         end_cycle = true;

@@ -224,9 +224,6 @@ if strcmp(R.Type, 'cstr') == true
         fprintf(file_id, '} \n');
     end
 
-
-
-
     % Kinetic dictionary
     if isfield(R, 'kinetic') == true
         fprintf(file_id, '\n Dictionary kinetics \n { \n');

@@ -288,7 +288,7 @@ mass = zeros(k,1);
 
 % If 2d-axisimmetric volumes must be corrected
 if size(coord,2) == 2
-     vol_data =  vol_data;
+     vol_data =  vol_data * 2 * pi;
 end
 
 % Partititon the data and compute volumes and mass
@@ -499,7 +499,7 @@ else
     en_eq = opt_global.SolveEnergy;
 end
 
-a = 1000;   % Multiplicative factor for mass flowrates
+a = 10;   % Multiplicative factor for mass flowrates
 
 x_clust = clustering(coord(:,1),idx);
 
@@ -508,6 +508,11 @@ if opt_global.DataVariance == true
     Tvar = data_all.Variance;
     Tvar_clust = clustering(Tvar, idx);
     fprintf('Temperature variance data are present and they are being processed... \n');
+end
+
+% Check option to initialize composition
+if isfield(opt_global, 'InitComp') == true
+    Y_list = init_composition(data_all, idx, dim);
 end
 
 %% Check for diffusive fluxes between reactors
@@ -648,7 +653,12 @@ switch en_eq
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);     % Mass flowrate kg/s
                 R.P = case_info.P;                                          % Pressure Pa                 
                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});          % Temperature K
-                R.Y = {'O2:0.21', 'N2:0.79'};                               % Initialize mol fractions
+                if isfield(opt_global, 'InitComp')
+                    R.Y = Y_list{i};
+                    R.basis = 'mol';
+                else
+                    R.Y = {'O2:0.21', 'N2:0.79'};                           % Initialize mol fractions
+                end
                 R.isothermal = true;                                        % Energy
 
                 % If it's an inlet, keep it isothermal
@@ -676,7 +686,7 @@ switch en_eq
                     if opt_global.DataVariance == false
                         R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
                     else
-                        R.Tvar = mean(Tvar_clust{i});
+                        R.Tvar = max(Tvar_clust{i});
                     end
                 end
 

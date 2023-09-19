@@ -59,7 +59,7 @@ switch select_data
         X = [X_data(:,start) X_data(:,id_keep)];
         
     case 'coord'
-        major_sp = {'oh', 'o', 'h', 'h2o'};
+        major_sp = {'oh', 'o', 'h'};
         id_keep = [];
         count = 1;
         for i = 1 : length(major_sp)
@@ -76,7 +76,7 @@ switch select_data
 
     case 'reduced_set'
 
-        major_sp = {'h2o', 'co2', 'co', 'ch4', 'oh'};
+        major_sp = {'oh', 'h', 'o', 'co2', 'co', 'no'};
         id_keep = [];
         count = 1;
         for i = 1 : length(major_sp)
@@ -108,40 +108,48 @@ switch select_data
         feq = max(f);
         fnorm = f/feq;
 
-        X = [X_data fnorm];
-
-        % Check for other fields in data_all
-        % Check for tau
-        if isfield(data_all, 'Tau')
-            tau = data_all.Tau;
-            tau(tau>1) = 1;         % Clip to max
-            tau = -log10(tau);      % Apply nonlinear transformation
-
-            % Update X
-            X = [X fnorm tau];
-            fprintf('Tau has been added to X \n');
-        end
-
+        X = [data_all.Solution(:,1) Y(:,id_keep) fnorm].^0.1;
+% 
+%         % Check for other fields in data_all
+%         % Check for tau
+%         if isfield(data_all, 'Tau')
+%             tau = data_all.Tau;
+%              tau = log(tau);       % Apply nonlinear transformation
+%               tau(tau>10) = 10;
+% 
+%             % Update X
+%             X = [X 100*tau];
+%             fprintf('Tau has been added to X \n');
+%         end
+% 
         % Check for velocity
         if isfield(data_all, 'Velocity')
             vel = data_all.Velocity;
             X = [X vel];
             fprintf('Velocity has been added to X \n');
         end
+% 
+%         % Check for temperature variance
+%         if isfield(data_all, 'Variance')
+%             Tvar = data_all.Variance;
+%             X = [X Tvar];
+%             fprintf('Temperature variance has been added to X \n');
+%         end
+% 
+%         % Check for velocity angle
+%         if isfield(data_all, 'Angle')
+%             angle = data_all.Angle;
+%             X = [X 1000*angle];
+%             fprintf('Angle has been added to X \n');
+%         end
 
-        % Check for temperature variance
-        if isfield(data_all, 'Variance')
-            Tvar = data_all.Variance;
-            X = [X Tvar];
-            fprintf('Temperature variance has been added to X \n');
-        end
-
-        % Check for velocity angle
-        if isfield(data_all, 'Angle')
-            angle = data_all.Angle;
-            X = [X angle];
-            fprintf('Angle has been added to X \n');
-        end
+%         % Check for coordinates
+%         if isfield(data_all, 'Coordinates')
+%             coord = data_all.Coordinates;
+%             X = [X data_all.Coordinates];
+%             fprintf('Coordinates were added to X \n');
+%         end
+%        
 
     case 'velocity_only'
 
@@ -151,6 +159,15 @@ switch select_data
         X = [vel angle];
 
         labels = {'velocity', 'angle'};
+
+        if isfield(data_all, 'Tau')
+            tau = data_all.Tau;
+            tau(tau>1) = 1;         % Clip to max
+            tau = -log10(tau);      % Apply nonlinear transformation
+
+            X = [X tau];
+            labels = {labels, 'tau'};
+        end
 
     case 'pure_h2'
 
