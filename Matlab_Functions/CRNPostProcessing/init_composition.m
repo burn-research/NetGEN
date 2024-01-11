@@ -14,15 +14,20 @@ elseif dim == 3
     start = 5;
 end
 
-comp = data_all.Solution(:,start+1:end);
+comp = data_all.Solution(:,2:end);
 labels_sp = data_all.Labels(start+1:end);
 
 % Rewrite labels of species 
 for i = 1 : length(labels_sp)
-    li = split(labels_sp{i}, '-');
+    li = split(labels_sp{i});
     if length(li) > 1
         LI = upper(li{2});
         labels_sp{i} = LI;
+        % Check if contains molef
+        if contains(LI, 'MOLE')
+            LIS = extractAfter(LI, '-');
+            labels_sp{i} = LIS;
+        end
     end
 end
 
@@ -38,7 +43,7 @@ for i = 1 : k
     Yl = {};
     counter = 0;
     for j = 1 : size(comp_mean,2)
-        if comp_mean(j) > 1e-4
+        if comp_mean(j) > 1e-6
             counter = counter + 1;
             ss = append(labels_sp{j}, ':', num2str(comp_mean(j)));
             Yl{counter} = ss;
