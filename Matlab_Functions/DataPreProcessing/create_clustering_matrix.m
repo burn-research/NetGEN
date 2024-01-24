@@ -108,24 +108,24 @@ switch select_data
         feq = max(f);
         fnorm = f/feq;
 
-        X = [data_all.Solution(:,1) Y(:,id_keep) fnorm].^0.1;
+        X = [data_all.Solution(:,1) Y(:,id_keep) fnorm];
 
         % Check for other fields in data_all
         % Check for tau
         if isfield(data_all, 'Tau')
             tau = data_all.Tau;
              tau = log(tau);       % Apply nonlinear transformation
-              tau(tau>10) = 10;
+              tau(tau>1) = 1;
 
             % Update X
-            X = [X 100*tau];
+            X = [X tau.^2];
             fprintf('Tau has been added to X \n');
         end
 
         % Check for velocity
         if isfield(data_all, 'Velocity')
             vel = data_all.Velocity;
-            X = [X vel];
+            X = [X vel.^1.5];
             fprintf('Velocity has been added to X \n');
         end
 
@@ -136,12 +136,12 @@ switch select_data
             fprintf('Temperature variance has been added to X \n');
         end
 
-        % Check for velocity angle
-        if isfield(data_all, 'Angle')
-            angle = data_all.Angle;
-            X = [X 1000*angle];
-            fprintf('Angle has been added to X \n');
-        end   
+%         % Check for velocity angle
+%         if isfield(data_all, 'Angle')
+%             angle = data_all.Angle;
+%             X = [X angle];
+%             fprintf('Angle has been added to X \n');
+%         end   
 
     case 'velocity_only'
 

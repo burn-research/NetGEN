@@ -91,7 +91,8 @@ function [mass_corrected, bc_mass_flowrates, R_list, idx, X, infos] = network_ev
 % R.Tau = Residence time [s]
 % R.Qdot = Heat losses [W]
 
-init_time = datetime;
+init_time  = datetime;
+initial_nr = k;
 
 %% Data import section
 
@@ -100,6 +101,7 @@ if isfield(opt_global, 'DataPath') == false
     error('Path to data not available in the options. Impossible to retrieve data');
 end
 
+% Import all the data
 data_all = import_data_all(opt_global.DataPath, ndim, opt_global);
 
 % Extract the data
@@ -108,22 +110,24 @@ if isfield(opt_global, 'OptData') == false
 end
 
 % Data matrix (refer to import_data_cfd.m)
-% [X, labels, dim, coord] = import_data_cfd(opt_global.OptData);
 [X, labels, dim, coord] = create_clustering_matrix(data_all, opt_global);
 fprintf('Data matrix X is of size %d rows and %d columns \n', size(X, 1), size(X, 2));
+
+% Check dimensions
 start = dim+2; % Columns to start importing the data
-            
 
 % Get mixture fraction
 if isfield(opt_global, 'Precond') == true
 
     % Fuel composition is needed
     load(append(opt_global.DataPath, 'case_info.mat'));
-
+    % Get data
     comp = data_all.Solution;
+    % Get chemical compositions
     comp = comp(:,start+1:end);
+    % Get only species labels
     sp_labels = data_all.SpeciesLabels;
- 
+    % Rewrite labels
     sp_labels_c = rewrite_fluent_labels(sp_labels);
     if isfield(opt_global, 'Basis') == false
         basis = input('mol or mass basis not specified, please specify: ', 's');
@@ -134,7 +138,8 @@ if isfield(opt_global, 'Precond') == true
     if strcmp(basis, 'mol') || strcmp(basis, 'mole') || strcmp(basis, 'molar')
         Y = mole_to_mass(comp, sp_labels_c);
     end
-
+    
+    % Calculate mixture fraction
     f = mixture_fraction(Y, sp_labels, fuel);
     opt_global.f = f;
 end
@@ -181,6 +186,8 @@ end
 X_center = center(X, cent);
 X_scaled = scale(X_center, X, scal_crit);
 
+%% Clustering step
+% Start monitoring clustering time
 time = date;
 str = append(alg, '_', num2str(k), 'clust_', scal, '_', time);
 
@@ -206,7 +213,10 @@ end
 % Perform clustering
 disp('Performing unsupervised clustering...');
 clust_time_start = datetime;
+
+% Clustering
 idx = custom_cluster(k, X, labels, alg, opt_global);
+
 clust_time_end   = datetime;
 infos.ClusteringTime = clust_time_end - clust_time_start;
 
@@ -261,6 +271,8 @@ graph_time_start = datetime;
 
 opt_global.X = X_scaled;
 opt_global.CellsVolume = data_all.Volumes;
+
+% Reassign nodes
 idx_new = reassign_nodes(nodes, G, idx, opt_global);
 idx = idx_new;
 k_new = max(idx_new);
@@ -268,6 +280,20 @@ if k_new ~= k
     clust_removed = k - k_new;
     mess = append(num2str(clust_removed), ' has been removed');
     k = k_new;
+end
+
+% Check if reassignment to match number of reactors is active
+if isfield(opt_global, 'ClusterReassignment') == true
+    matchNr = opt_global.ClusterReassignment;
+else
+    matchNr = false;
+end
+
+if matchNr == true
+    [idx_new, k_new] = match_nr(nodes, G, idx, initial_nr, opt_global);
+    idx = idx_new;
+    k = k_new;
+    pause;
 end
 
 % Get infos
@@ -380,7 +406,7 @@ end
 data_boundaries = data_all.Boundaries;
 
 % Calculate the inlets and mass flowrates at the boundaries
-[inlets, bc_mass_flowrates] = calc_inlets(idx, inlet_streams, data_boundaries);
+[~, bc_mass_flowrates] = calc_inlets(idx, inlet_streams, data_boundaries);
 
 % Calculate reactors areas
 if opt_global.SolveEnergy == true
@@ -437,6 +463,8 @@ fprintf('\n');
 mass_corrected = mass_flowrates;
 
 %% Save the results into a newly created folder
+
+% Create new directory
 dir_title = str;
 mkdir(dir_title);
 cd(dir_title);
@@ -499,7 +527,7 @@ else
     en_eq = opt_global.SolveEnergy;
 end
 
-a = 10;   % Multiplicative factor for mass flowrates
+a = 10;   % Multiplicative factor for mass flowrates (solver stability)
 
 x_clust = clustering(coord(:,1),idx);
 
@@ -680,13 +708,13 @@ switch en_eq
 
                     % Kinetic corrections
                     R.KineticCorrections = true;
-                    R.Tmean = max(T_clust{i});
+                    R.Tmean = max(T_clust{i})*1.2;
 
                     % Check if data of temperature variance is present
                     if opt_global.DataVariance == false
                         R.Tvar  = opt_global.RelativeFluctuations * R.Tmean;
                     else
-                        R.Tvar = max(Tvar_clust{i});
+                        R.Tvar = max(Tvar_clust{i})*1.2;
                     end
                 end
 

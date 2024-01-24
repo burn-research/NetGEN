@@ -328,7 +328,7 @@ end
 %         H = plot_subgraphs(cell_id, idx_new, G, coord);
 %     case 'no'
 %         disp('Results not displayed');
-% end        
+% end
 
 
 end
