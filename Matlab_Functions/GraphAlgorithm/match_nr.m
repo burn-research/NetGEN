@@ -88,16 +88,11 @@ if strcmp(crit, 'volumes') == true
             clust_neighb = idx_new(neighb);             % Neighbors clusters
     
             % Find external clusters
-            ext_clust = clust_neighb(clust_neighb ~= j);
+            ext_clust = clust_neighb(clust_neighb ~= sid);
     
             % If it is empty, keep idx_new untouched and proceed to the
             % next cell
-            if isempty(ext_clust) == true
-                disp('No external clusters');
-    
-            % If it is not empty store the cluster label in the vector
-            % and update the counter
-            else
+            if isempty(ext_clust) == false
                 neighb_clust(count+1:count+length(ext_clust)) = ext_clust;
                 count = count + length(ext_clust);
             end
@@ -107,16 +102,16 @@ if strcmp(crit, 'volumes') == true
         % Now re-assign the cluster based on the neighbor cluster
         % with more communicating cells
         neighb_clust = neighb_clust';
+        if isempty(neighb_clust) == true
+            warning('A cluster seems to not have any neighbour. Please check.');
+        end
     
         % Count the neighbor clusters
-        clust_count  = groupcounts(neighb_clust);
-    
-        % Get the clusters that communicate with the subgraph
-        clust_unique = sort(unique(neighb_clust), 'ascend');
+        [clust_count, clust_index]  = groupcounts(neighb_clust);
     
         % Get the neighbour cluster with more neighbour cells
         [~,idmax] = max(clust_count);
-        kmax = clust_unique(idmax);
+        kmax = clust_index(idmax);
     
         % Update
         idx_new(idx_new==sid) = kmax;
