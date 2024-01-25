@@ -300,6 +300,20 @@ end
 graph_time_end = datetime;
 infos.GraphTime = graph_time_end - graph_time_start;
 
+%% Reorder reactors
+if isfield(opt_global, 'ReorderReactors') == true
+    reorder = opt_global.ReorderReactors;
+else
+    reorder = false;
+end
+
+if reorder == true
+    disp('Reordering reactors according to cell ids...')
+    idx_new = reorder_reactors(idx, nodes);
+    idx = idx_new;
+    disp('Reordering done');
+end
+
 %% Calculate volumes and mass of clusters
 
 % Volumes data
@@ -681,6 +695,9 @@ switch en_eq
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i);     % Mass flowrate kg/s
                 R.P = case_info.P;                                          % Pressure Pa                 
                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});          % Temperature K
+                if R.T > 1500
+                    R.T = max(T_clust{i});
+                end
                 if isfield(opt_global, 'InitComp')
                     R.Y = Y_list{i};
                     R.basis = 'mol';
@@ -708,7 +725,7 @@ switch en_eq
 
                     % Kinetic corrections
                     R.KineticCorrections = true;
-                    R.Tmean = max(T_clust{i})*1.2;
+                    R.Tmean = max(T_clust{i});
 
                     % Check if data of temperature variance is present
                     if opt_global.DataVariance == false
@@ -855,7 +872,7 @@ end
 % Write .sh file
 if isfile('Run.sh') == false
     bat = fopen('Run.sh', 'w');
-    fprintf(bat, '/Users/matteosavarese/Desktop/Dottorato/OpenSmoke/Compilazione_KPP/NetSmoke_KinCorr-Master/SeReNetSMOKEpp-master/projects/Linux/SeReNetSMOKEpp.sh --input input.dic');
+    fprintf(bat, '/Users/matteosavarese/Desktop/Dottorato/Github/NetSMOKEpp/SeReNetSMOKEpp-master/projects/Linux/SeReNetSMOKEpp.sh --input input.dic');
     fclose(bat);
 end
 
