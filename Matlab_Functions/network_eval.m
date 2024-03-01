@@ -586,7 +586,8 @@ switch en_eq
                 R.V = net_volumes(i);                                   % cm3
                 R.Mf = sum(mass_flowrates(i,:)) + bc_mass_flowrates(i); % kg/s
                 R.P = case_info.P;                                      % Pa
-                R.T = sum(weight_T_clust{i})/sum(weight_clust{i});      % K
+%                 R.T = sum(weight_T_clust{i})/sum(weight_clust{i});      % K
+                R.T = max(T_clust{i});
 
                 if max(x_clust{i}) < 0.0
                     R.isothermal = true;
