@@ -25,7 +25,7 @@ opt_global.Basis = 'mol';
 % Simulation options
 opt_global.KineticMech = 'SanDiego'; % gri3.0, gri2.11, SanDiego, Polimi, Stagni, Otomo
 opt_global.SolveEnergy = true;
-opt_global.RunSimulation = true;
+opt_global.RunSimulation = false;
 opt_global.KineticCorrections = true;
 opt_global.DataVariance = true;
 opt_global.InitComp = true;
@@ -47,7 +47,6 @@ opt_global.WriteFile = true;
 opt_global.VolumeThreshold = 0.001;
 opt_global.ReassignCriterion = 'volume';
 opt_global.Criterion = 'Euclidean';
-
 % Options for reassigning clusters
 opt_global.ClusterReassignment = true;
 opt_global.ClusterReassignmentCriterion = 'volumes';
@@ -59,7 +58,7 @@ opt_global.ReorderReactors = true;
 load case_info.mat
 
 % Select number of clusters
-k = 8;     % Number of clusters
+k = 20;     % Number of clusters
 ndim = 2;   % If case is 2D or 3D
 
 fname1 = append('k-means_', num2str(k), 'clust_', opt_global.Scale, '_', date);

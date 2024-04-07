@@ -103,6 +103,7 @@ end
 
 % Import all the data
 data_all = import_data_all(opt_global.DataPath, ndim, opt_global);
+coord = data_all.Coordinates;
 
 % Extract the data
 if isfield(opt_global, 'OptData') == false
@@ -110,7 +111,7 @@ if isfield(opt_global, 'OptData') == false
 end
 
 % Data matrix (refer to import_data_cfd.m)
-[X, labels, dim, coord] = create_clustering_matrix(data_all, opt_global);
+[X, labels, dim] = create_clustering_matrix(data_all, opt_global);
 fprintf('Data matrix X is of size %d rows and %d columns \n', size(X, 1), size(X, 2));
 
 % Check dimensions
