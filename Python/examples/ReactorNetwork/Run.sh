@@ -1,0 +1,1 @@
+/Users/matteosavarese/Desktop/Dottorato/Github/NetSMOKEpp/SeReNetSMOKEpp-master/projects/Linux/SeReNetSMOKEpp.sh --input input.dic

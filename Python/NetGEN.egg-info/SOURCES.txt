@@ -1,0 +1,11 @@
+setup.py
+NetGEN/__init__.py
+NetGEN/clustering.py
+NetGEN/dataimport.py
+NetGEN/generation.py
+NetGEN/graphs.py
+NetGEN/preprocess.py
+NetGEN.egg-info/PKG-INFO
+NetGEN.egg-info/SOURCES.txt
+NetGEN.egg-info/dependency_links.txt
+NetGEN.egg-info/top_level.txt

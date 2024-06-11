@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: NetGEN
+Version: 1.0.0
+Summary: Python libraries for automatic generation of chemical reactor networks.
+Author: Matteo Savarese
+Author-email: matteo.savarese@ulb.be
+Keywords: Principal Component Analysis,clustering,dimensionality reduction,model order reduction
