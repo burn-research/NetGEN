@@ -1,0 +1,28 @@
+Dictionary PerfectlyStirredReactor 
+ { 
+     @Type     NonIsothermal-ConstantPressure;
+     @KineticsFolder     dummy;
+     @Volume    3.430000e-01 m3;
+     @MassFlowRate    2.000000e+00 kg/s;
+     @ExchangeArea    1.000000e+00 m2;
+     @GlobalThermalExchangeCoefficient    1.500000e+03 W/m2/K;
+     @EnvironmentTemperature    300 K;
+     @InitialStatus     initial-status;
+     @InletStatus     inlet-mixture;
+} 
+Dictionary inlet-mixture 
+ { 
+     @Temperature     3.000000e+02 K;
+     @Pressure        1.013250e+05 Pa;
+@Moles     O2 0.190045 
+CH4 0.095023 
+N2 0.714932; 
+} 
+Dictionary initial-status 
+ { 
+     @Temperature     2.500000e+03 K;
+     @Pressure        1.013250e+05 Pa;
+     @Moles     O2 0.190045 
+CH4 0.095023 
+N2 0.714932; 
+} 

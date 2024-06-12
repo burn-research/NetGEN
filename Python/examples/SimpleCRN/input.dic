@@ -1,0 +1,25 @@
+Dictionary ReactorNetwork 
+ { 
+@KineticsPreProcessor     kinetic-mechanism;
+@MinIterations                     5;
+@MaxIterations                     500;
+@AtomicErrorThreshold              1.000000e-03;
+@NonIsothermalErrorThreshold       1.000000e-04;
+@MaxUnbalance                      5.000000e-02;
+@PerfectlyStirredReactors 
+0       input.cstr.0.dic
+1       input.cstr.1.dic;
+@InternalConnections     0     1     2.000000e+00 
+1     0     1.000000e+00;
+@InputStreams     0     1.000000e+00; 
+@OutputStreams     1     1.000000e+00; 
+@SpeciesToMonitor     NO	CO	;
+@VerbosityLevel     1;
+} 
+ 
+Dictionary kinetic-mechanism 
+ { 
+@Kinetics          /Users/matteosavarese/Desktop/Dottorato/Kinetics/GRI3.0/gri30.CKI;
+@Thermodynamics    /Users/matteosavarese/Desktop/Dottorato/Kinetics/GRI3.0/thermo.dat;
+@Output     kinetics;
+} 

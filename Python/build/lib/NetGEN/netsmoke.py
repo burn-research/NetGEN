@@ -721,7 +721,7 @@ class ReactorNetwork:
         return self
         
     # Command to run simulation
-    def RunSimulation(self, netsmoke_path):
+    def RunSimulation(self, netsmoke_path, verbose=False):
         """
         Command to run simulation.
 
@@ -745,7 +745,10 @@ class ReactorNetwork:
         os.chdir(self.SimFolder)
         command = 'sh Run.sh'
         log_file = "netlog.txt"
-        os.system(f"{command} >> {log_file}")
+        if verbose == False:
+            os.system(f"{command} >> {log_file}")
+        else:
+            os.system(command)
         # Return to working directory
         os.chdir(self.WorkingDir)
 
