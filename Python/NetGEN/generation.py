@@ -387,7 +387,40 @@ class CRNGen:
                         if inlet_streams[i,j] != 0:
                             print("Reactor ", i, " receive inlet from stream ", streams[j]['id'], " called ", streams[j]['name'])
 
+        # Initialize list of inlet mixtures
+        inlet_mixtures = [None] * self.nr_
+
+        # Check for multiple inlets
+        for i in range(self.nr_):
+            count = 0
+            idms  = []
+            # Scan through inlets
+            if inlets_mf[i]>0:
+                for j in range(inlet_streams.shape[1]):
+                    if inlet_streams[i,j]>0:
+                        count += 1
+                        idms.append(j)
+                # If multiple inlet we mix the streams
+                if count > 1:
+                    print("Multiple inlet detected")
+                    mxs = []
+                    # Get gas objetcs
+                    for j in range(len(idms)):
+                        g = streams[j]['gas']   # Get gas object
+                        q = ct.Quantity(g, mass=inlet_streams[i,idms[j]], constant="HP")
+                        mxs.append(q)
+                    M = mxs[0]
+                    for j in range(len(mxs)-1):
+                        M = M + mxs[j+1]
+                    # Append to inlet mixtures
+                    inlet_mixtures[i] = M
+
+                # Single inlet
+                else:
+                    inlet_mixtures[i] = streams[idms[0]]['gas']
+
         # Update attributes
+        self.inlet_mixtures_ = inlet_mixtures
         self.inlet_streams_ = inlet_streams
         self.outlets_mf_ = outlets_mf
         self.inlets_mf_  = inlets_mf
@@ -583,12 +616,9 @@ class CRNGen:
                 # Update counter
                 count += 1
 
-                # Get associated gas object from the streams dictionary
-                for j in range(len(self.streams_)):
-                    if self.inlet_streams_[i,j] > 0:
-                        gas = self.streams_[j]['gas']
-                        break
-        
+                # Get associated gas object from the inlet_mixtures
+                gas = self.inlet_mixtures_[i]
+
                 # Create the inlet reactor
                 rin = Reactor(Rtype='PSR', isothermal=isothermal, tau=1e-6, 
                         Mf=self.inlets_mf_[i], P=Pref, 

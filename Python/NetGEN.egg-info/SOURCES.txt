@@ -4,6 +4,7 @@ NetGEN/clustering.py
 NetGEN/dataimport.py
 NetGEN/generation.py
 NetGEN/graphs.py
+NetGEN/netsmoke.py
 NetGEN/preprocess.py
 NetGEN.egg-info/PKG-INFO
 NetGEN.egg-info/SOURCES.txt
