@@ -72,16 +72,25 @@ def getMixtureFraction(datadictionary, fuel, oxidizer, canteramech="gri30.yaml",
     """
     Calculate the mixture fraction based on a given thermo-chemical solution.
 
-    Parameters:
-    datadictionary (dict): Dictionary containing thermo-chemical solution data.
-    fuel (str): Name of the fuel species in a cantera-like format ("CH4:0.5, H2:0.5").
-    oxidizer (str): Name of the oxidizer species in a cantera-like format
-    canteramech (str): Cantera mechanism file. Default is "gri30.yaml".
-    basis (str): Basis for the calculation, either "mole" or "mass". Default is "mole".
-    datainterface (str): Interface for the data, default is "fluent".
+    Parameters
+    ----------
+    datadictionary : dict
+        Dictionary containing thermo-chemical solution data.
+    fuel : str
+        Name of the fuel species in a cantera-like format ("CH4:0.5, H2:0.5").
+    oxidizer : str
+        Name of the oxidizer species in a cantera-like format.
+    canteramech : str
+        Cantera mechanism file. Default is "gri30.yaml".
+    basis : str
+        Basis for the calculation, either "mole" or "mass". Default is "mole".
+    datainterface : str
+        Interface for the data, default is "fluent".
 
-    Returns:
-    np.ndarray: Array of mixture fraction values.
+    Returns
+    -------
+    np.ndarray
+        Array of mixture fraction values.
     """
 
     # Check if datadictionary contains the solution field
@@ -135,19 +144,27 @@ def getMixtureFraction(datadictionary, fuel, oxidizer, canteramech="gri30.yaml",
 
 def getProgressVariable(datadictionary, pv, datainterface="fluent", basis="mole", verbose=False):
 
-    """
-    Calculate the progress variable based on a given thermo-chemical solution.
+    '''
+    This function calculates the progress variable based on a given thermo-chemical solution.
 
-    Parameters:
-    datadictionary (dict): Dictionary containing thermo-chemical solution data.
-    pv (str): Progress variable specification as a string in the form "species:weight, ...".
-    datainterface (str): Interface for the data, default is "fluent".
-    basis (str): Basis for the calculation, either "mole" or "mass". Default is "mole".
-    verbose (bool): If True, prints additional debug information. Default is False.
+    Parameters
+    ----------
+    datadictionary : (dict)
+        Dictionary containing thermo-chemical solution data.
+    pv : (str)
+        Progress variable specification as a string in the form "species:weight, ...".
+    datainterface : (str)
+        Interface for the data, default is "fluent".
+    basis : (str)
+        Basis for the calculation, either "mole" or "mass". Default is "mole".
+    verbose : (bool)
+        If True, prints additional debug information. Default is False.
 
-    Returns:
-    np.ndarray: Array of progress variable values.
-    """
+    Returns
+    -------
+    PV : (np.ndarray)
+        Array of progress variable values.
+    '''
 
     # Check if datadictionary contains the solution field
     if "solution" not in datadictionary:
