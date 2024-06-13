@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import cantera as ct
 
 def GenDataFluent(datainfo, datapath, dim, verbose=False):
 
@@ -63,6 +64,68 @@ def GenDataFluent(datainfo, datapath, dim, verbose=False):
         print(datadictionary['solution']['names'])
     
     return datadictionary
+
+# ------------- Utilities functions to calculate useful quantities ------------ #
+def getMixtureFraction(datadictionary, fuel, oxidizer, canteramech="gri30.yaml", basis="mole", datainterface="fluent"):
+
+    # Check if datadictionary contains the solution field
+    if "solution" not in datadictionary:
+        raise ValueError("The 'solution' field is not in datadictionary. Please, provide a thermo-chemical solution before extracting mixture fraction")
+
+    # Initialize cantera object
+    gas = ct.Solution(canteramech)
+
+    # Get composition
+    comp = datadictionary['solution']['values'][:,1:]
+
+    # Initialize mixture fraction
+    npts = np.shape(comp)[0]
+    Z = np.zeros(npts)
+
+    # Get column names according to cantera with fluent data interface
+    if datainterface == "fluent":
+        # Names of columns 
+        names = datadictionary['solution']['names'][1:]
+        # Initialize list of Fluent names
+        fnames = []
+        # Convert to capital and species names
+        for name in names:
+            if '-' in name:
+                fnames.append(name.split('-')[1].upper())
+            else:
+                fnames.append(name.upper())
+        
+        # Iterate and calculate point-wise mixture fraction
+        for i in range(npts):
+            x = np.zeros(gas.n_species)
+            for j in range(len(fnames)):
+                idsp = gas.species_index(fnames[j])
+                x[idsp] = comp[i,j]
+            if basis == "mole":
+                gas.TPX = 300.0, 101325.0, x
+                # Calculate mixture fraction
+                z = gas.mixture_fraction(fuel, oxidizer, basis=basis, element="Bilger")
+            else:
+                gas.TPY = 300.0, 101325.0, x
+                # Calculate mixture fraction
+                z = gas.mixture_fraction(fuel, oxidizer, basis=basis, element="Bilger")
+            # Update mixture fraction array
+            Z[i] = z
+
+    else:
+        raise ValueError("datainterface not recognized")
+    
+    return Z
+
+
+
+        
+
+
+            
+
+
+
 
         
 
