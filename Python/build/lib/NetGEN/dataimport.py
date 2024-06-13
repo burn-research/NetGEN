@@ -117,6 +117,64 @@ def getMixtureFraction(datadictionary, fuel, oxidizer, canteramech="gri30.yaml",
     
     return Z
 
+def getProgressVariable(datadictionary, pv, datainterface="fluent", basis="mole", verbose=False):
+
+    # Check if datadictionary contains the solution field
+    if "solution" not in datadictionary:
+        raise ValueError("The 'solution' field is not in datadictionary. Please, provide a thermo-chemical solution before extracting mixture fraction")
+
+    # Get composition
+    comp = datadictionary['solution']['values'][:,1:]
+
+    # Initialize progress variable
+    npts = np.shape(comp)[0]
+    PV = np.zeros(npts)
+
+    # Split the string into species and weights
+    components = pv.split(", ")
+
+    # Initialize the lists for species and weights
+    species = []
+    weights = []
+
+    # Iterate over each component to separate species and weights
+    for component in components:
+        name, weight = component.split(":")
+        species.append(name)
+        weights.append(float(weight))
+
+    if verbose:
+        print("Species:", species)
+        print("Weights:", weights)
+
+    # Get column names according to cantera with fluent data interface
+    if datainterface == "fluent":
+        # Names of columns 
+        names = datadictionary['solution']['names'][1:]
+        # Initialize list of Fluent names
+        fnames = []
+        # Convert to capital and species names
+        for name in names:
+            if '-' in name:
+                fnames.append(name.split('-')[1].upper())
+            else:
+                fnames.append(name.upper())
+        
+        # Iterate and calculate point-wise progress variable
+        for i in range(npts):
+            pvi = 0
+            for j in range(len(species)):
+                pvi += weights[j] * comp[i,fnames.index(species[j])]
+            # Update progress variable array
+            PV[i] = pvi
+
+    else:
+        raise ValueError("datainterface not recognized")
+    
+    return PV
+
+
+
 
 
         
