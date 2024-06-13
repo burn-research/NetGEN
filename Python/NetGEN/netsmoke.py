@@ -1392,3 +1392,79 @@ class GeneralCRN:
         self.rn_.RunSimulation(netsmoke_path)
 
         return self
+    
+# ---------------- Utilities to plot results -------------- #
+def compareContours(datadictionary, crn, varname, labels, cmap='jet', figsize=(6,4),
+                    alignment='horizontal', datainterface='fluent', savefig=False, figname="scatter.png"):
+    
+    # Check for solution field
+    if 'solution' not in datadictionary:
+        raise ValueError("The solution field is not in datadictionary")
+    
+    if datainterface=='fluent':
+
+        # Names of columns 
+        names = datadictionary['solution']['names'][0:]
+        # Initialize list of Fluent names
+        fnames = []
+        # Convert to capital and species names
+        for name in names:
+            if '-' in name:
+                fnames.append(name.split('-')[1].upper())
+            else:
+                fnames.append(name.upper())
+
+        # Check if varname is contained in the fluent variables
+        if varname not in fnames:
+            raise ValueError("The specified varname is not contained in the Fluent variables")
+        
+        # Extract the CFD values
+        idcfd = fnames.index(varname)
+        cfdval = datadictionary['solution']['values'][:,idcfd]
+
+        # Now we need to exctract the reactors outputs
+        Mlist = crn.ExtractOutputs()
+
+        # Initialize the CRN conour array
+        netval = np.zeros_like(cfdval)
+        for i in range(len(Mlist)):
+            if varname == 'TEMPERATURE':
+                netval[labels==i] = Mlist[i].T
+            else:
+                netval[labels==i] = Mlist[i].X[Mlist[i].species_index(varname)]
+        
+        # Get coordinates
+        xx = datadictionary['coordinates']['values'][:,0]
+        yy = datadictionary['coordinates']['values'][:,1]
+
+    # Get vmin e vmax
+    vmin = min(cfdval); vmax = max(cfdval)
+
+    # Scatter plot
+    fig, ax = plt.subplots(figsize=figsize)
+    if alignment == 'horizontal':
+        sc_cfd = ax.scatter(xx,  yy, c=cfdval, s=1, cmap=cmap, vmin=vmin, vmax=vmax)
+        sc_net = ax.scatter(xx, -yy, c=netval, s=1, cmap=cmap, vmin=vmin, vmax=vmax)
+    else:
+        sc_cfd = ax.scatter(yy,  xx, c=cfdval, s=1, cmap=cmap, vmin=vmin, vmax=vmax)
+        sc_net = ax.scatter(-yy, xx, c=netval, s=1, cmap=cmap, vmin=vmin, vmax=vmax)
+
+    # Set axis labels
+    ax.set_xlabel('x (m)')
+    ax.set_ylabel('y (m)')
+    # Colorbar
+    cb = fig.colorbar(sc_cfd, ax=ax)
+    cb.set_label(varname)
+    # Check for save figure
+    if savefig == True:
+        plt.savefig(figname, dpi=600)
+        
+
+
+
+
+        
+
+
+
+

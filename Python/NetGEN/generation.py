@@ -707,6 +707,8 @@ class CRNGen:
         self.mass_netsmoke_ = mass_netsmoke
 
         return crn, self
+    
+
 
         
 
