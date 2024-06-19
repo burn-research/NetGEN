@@ -705,8 +705,69 @@ class CRNGen:
 
         # Update mass flowrates
         self.mass_netsmoke_ = mass_netsmoke
+        self.R_list_ = R_list
 
         return crn, self
+    
+    def getMassSplit(self, verbose=False):
+
+        # Initialize splitting ratios matrix
+        split_ratios = np.zeros((self.nr_, self.nr_))
+
+        # Scan through the reactors
+        for i in range(self.nr_):
+
+            # Check if is an outlet
+            if self.outlets_mf_[i] == 0:
+                if verbose:
+                    print(f"Reactor {i} is not an outlet")
+                # Get mass flowrate 
+                split_ratios[i,:] = self.Mf_[i,:] / np.sum(self.Mf_[i,:])
+            else:
+                if verbose:
+                    print(f"Reactor {i} is an outlet")
+                # Get mass flowrate 
+                split_ratios[i,:] = self.Mf_[i,:] / (np.sum(self.Mf_[i,:]) - self.outlets_mf_[i])
+        
+        # Store split ratios in the object
+        self.split_ratios_ = split_ratios
+        return self
+    
+    def adaptNetwork(self, inlets):
+
+        # Check dimensions
+        if len(inlets) != self.nr_:
+            raise ValueError("Inlet size is different from number of reactors")
+
+        # Get the A matrix of the linear system
+        A = np.eye(self.nr_) - self.split_ratios_
+
+        # Get the boundary condition vector
+        b = inlets
+
+        # Solve the linear system
+        M = np.linalg.solve(A, b)
+
+        # Initialize new mass flowrates
+        mf_new = np.zeros(self.nr_, self.nr_)
+        for i in range(self.nr_):
+            mf_new[i,:] = self.split_ratios_[i,:] * M[i]
+
+        return mf_new
+
+
+
+
+    
+
+
+
+                    
+
+
+
+
+
     
 
 
