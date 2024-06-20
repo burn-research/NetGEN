@@ -705,8 +705,215 @@ class CRNGen:
 
         # Update mass flowrates
         self.mass_netsmoke_ = mass_netsmoke
+        self.R_list_ = R_list
 
         return crn, self
+    
+    def getMassSplit(self, verbose=False):
+
+        # Initialize splitting ratios matrix
+        split_ratios = np.zeros((self.nr_, self.nr_))
+
+        # Scan through the reactors
+        for i in range(self.nr_):
+
+            # Check if is an outlet
+            if self.outlets_mf_[i] == 0:
+                if verbose:
+                    print(f"Reactor {i} is not an outlet")
+                # Get mass flowrate 
+                split_ratios[i,:] = self.Mf_[i,:] / np.sum(self.Mf_[i,:])
+            else:
+                if verbose:
+                    print(f"Reactor {i} is an outlet")
+                # Get mass flowrate 
+                split_ratios[i,:] = self.Mf_[i,:] / (np.sum(self.Mf_[i,:]) - self.outlets_mf_[i])
+        
+        # Store split ratios in the object
+        self.split_ratios_ = split_ratios
+        return self
+    
+    def adaptNetwork(self, inlets):
+
+        # Check dimensions
+        if len(inlets) != self.nr_:
+            raise ValueError("Inlet size is different from number of reactors")
+
+        # Get the A matrix of the linear system
+        A = np.eye(self.nr_) - self.split_ratios_
+
+        # Get the boundary condition vector
+        b = inlets
+
+        # Solve the linear system
+        M = np.linalg.solve(A, b)
+
+        # Initialize new mass flowrates
+        mf_new = np.zeros(self.nr_, self.nr_)
+        for i in range(self.nr_):
+            mf_new[i,:] = self.split_ratios_[i,:] * M[i]
+
+        return mf_new
+    
+    def setAdaptedCRN(self, inlet_mixtures, outlets, streams, mf, kinfile, thermofile, canteramech,
+                       isothermal=True, verbose=False):
+        
+        """
+        Set up a Chemical Reactor Network (CRN) using PyNetsmoke.
+
+        Parameters:
+        -----------
+        inlet_mixtures (list): List of dictionaries containing information about the streams
+        outlets (array): array of outlet mass flowrates
+        streams (list): List of dictionaries containing information of the streams (not in the position of the reactors)
+        mf (array): nr x nr matrix of new mass flowrates
+        thermofile (str): Path to the thermodynamics file.
+        canteramech (str): Name of the Cantera mechanism.
+        isothermal (bool): Flag indicating whether the system is isothermal.
+        verbose (bool): Flag to enable verbose output.
+
+        Returns:
+        --------
+        crn (ReactorNetwork): The created Chemical Reactor Network object.
+        self: The object instance with updated attributes.
+        """
+
+        # Check shapes
+        if len(inlet_mixtures) != len(outlets):
+            raise ValueError("Shape of inlets and outlets do not match")
+        
+        if len(inlet_mixtures) != self.nr_ or len(outlets) != self.nr_ or np.shape(mf)[0] != self.nr_:
+            raise ValueError("Shape of inlets, outlets or mass flowrates is inconsistent")
+        
+        if np.shape(mf)[0] != np.shape(mf)[1]:
+            raise ValueError("Mass flowrate matrix is not square")
+
+        # Create reactors for inlets
+        n_in = sum([1 for x in inlet_mixtures if x is not None])
+
+        # Now create each reactor and update the list
+        Tref = 300
+        Pref = streams[0]['gas'].P
+        Xref = streams[0]['gas'].X
+        
+        # Create new connections
+        new_connections = np.zeros((n_in, 3))
+        count = 0
+
+        # Initialize reactors' list
+        R_inlets = []
+
+        for i in range(self.nr_):
+            if inlet_mixtures[i] is not None:
+
+                if verbose:
+                    print(f"Reactor {i} is an inlet")
+
+                # Update counter
+                count += 1
+
+                # Get associated gas object from the inlet_mixtures
+                gas = inlet_mixtures[i]
+
+                # Create the inlet reactor
+                rin = Reactor(Rtype='PSR', isothermal=isothermal, tau=1e-6, 
+                        Mf=self.inlets_mf_[i], P=Pref, 
+                        InletMixture=gas, sp_threshold=1e-5,
+                        CanteraMech=canteramech, 
+                        isinput=True)
+        
+                # Append reactor to reactor list
+                R_inlets.append(rin)
+        
+                # Update new connections
+                new_connections[count-1, 0] = self.nr_ + count - 1 
+                new_connections[count-1, 1] = i
+                new_connections[count-1, 2] = inlet_mixtures[i]['massflowrate']
+
+        # Create the new mass flowrate matrix
+        mass_netsmoke = np.zeros((self.nr_ + n_in, self.nr_ + n_in))
+        for i in range(self.nr_):
+            for j in range(self.nr_):
+                mass_netsmoke[i, j] = mf[i, j]
+
+        # Then add the mass flowrates from the fake reactors
+        for i in range(n_in):
+            mass_netsmoke[int(new_connections[i, 0]), int(new_connections[i, 1])] = new_connections[i, 2]
+
+        # Get new internal mass flowrates
+        Mf_in_netsmoke = np.zeros(self.nr_ + n_in)
+        for i in range(self.nr_+n_in):
+            Mf_in_netsmoke[i] = np.sum(mass_netsmoke[:,i])
+
+        # Initialize reactors list
+        R_list = []
+
+        # Scan through the reactors and create the reactor list
+        for i in range(self.nr_):
+            # Check if is an outlet
+            isoutlet = False
+            if outlets[i] > 0:
+                isoutlet = True
+                if verbose:
+                    print(f"Reactor {i} is an outlet")
+            
+            # Get volume, temperature and mass flowrate
+            vr = self.vr_[i]
+            Tr = self.Tr_[i]
+            Mf = Mf_in_netsmoke[i]
+
+            # Security check for kinetic corrections
+            if self.kincorr_ == True:
+                Tmean = self.Tmean_[i]
+                Tvar = self.Tvar_[i]
+                if Tmean < 1000:
+                    kincorr = False
+                else:
+                    kincorr = True
+            else:
+                Tmean = None
+                Tvar = None
+                kincorr = False
+
+            # Set gas object
+            gas = ct.Solution(canteramech)
+            gas.TPX = Tr, Pref, Xref
+
+            # Create reactor
+            r0 = Reactor('PSR', isothermal=isothermal, 
+                volume=vr, Mf=Mf, P=Pref, 
+                 InletMixture=gas, InitialStatus=gas, sp_threshold=1e-5,
+                 CanteraMech=canteramech, isoutput=isoutlet, KinCorr=kincorr,
+                 Tmean=Tmean, Tvar=Tvar)
+            
+            R_list.append(r0)
+
+        # Add the inlet reactors
+        for i in range(n_in):
+            R_list.append(R_inlets[i])
+
+        # Create the reactor network object
+        crn = ReactorNetwork(R_list,
+                mass_netsmoke, kinfile, thermofile)
+        
+        # Write inputs
+        crn.WriteNetworkInput()
+
+        return crn
+
+
+
+
+    
+
+
+
+                    
+
+
+
+
+
     
 
 
